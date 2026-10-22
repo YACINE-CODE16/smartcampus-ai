@@ -23,10 +23,11 @@ dist-ssr
 *.sln
 *.sw?
 
-# amplify
-.amplify
-amplify_outputs*
-amplifyconfiguration*
+# API locale
+apps/api/src/generated/
+apps/api/*.db
+apps/api/*.db-journal
+apps/api/storage/
 
 # env / secrets
 .env

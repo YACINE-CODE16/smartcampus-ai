@@ -1,0 +1,11 @@
+// Schéma de la base locale (SQLite). Les modèles sont ajoutés phase par phase
+// (voir .kiro/specs/smartcampus-ai/tasks.md). L'URL est définie dans prisma.config.ts.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}

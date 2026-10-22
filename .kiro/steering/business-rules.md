@@ -5,9 +5,9 @@ inclusion: always
 # Règles métier (décisions du PO)
 
 Toute demande qui contredit une règle ci-dessous doit être signalée au PO **avant** implémentation.
-Les valeurs (catégories, statuts, transitions, urgences, bâtiments, délais) vivent dans `shared/config/` et non en dur dans les composants.
+Les valeurs (catégories, statuts, transitions, urgences, bâtiments, délais) vivent dans `packages/shared/src/config/` et non en dur dans les composants ou les routes.
 
-## Rôles (groupes Cognito)
+## Rôles (deviendront des groupes Cognito en phase 9)
 | Groupe | Peut |
 |---|---|
 | `STUDENT` (défaut à l'inscription) | signaler, suivre **ses** incidents, rouvrir, noter, utiliser l'assistant |
@@ -36,11 +36,12 @@ OUVERT ──(prise en charge)──▶ EN_COURS ──(traité)──▶ RESOLU
 | RESOLU → FERME | étudiant (en notant), système (J+7), admin | `closedAt = now` |
 
 - **Chaque** changement de statut (et chaque assignation) crée un `IncidentEvent` horodaté : `fromStatus`, `toStatus`, `comment`, `authorId`, `authorRole`.
-- Les transitions sont validées **côté serveur** (Lambda de workflow), jamais uniquement dans l'UI.
+- Les transitions sont validées **côté serveur** (service `IncidentWorkflow` de l'API), jamais uniquement dans l'UI.
 - Une seule note par incident, uniquement quand il est `RESOLU`, uniquement par son propriétaire.
 
 ## Assistant IA
-- Répond uniquement à partir de la FAQ (`shared/faq/faq.json`) et des incidents **de l'utilisateur connecté**.
+- Répond uniquement à partir de la FAQ (`packages/shared/src/faq/faq.json`) et des incidents **de l'utilisateur connecté**.
+- En local : assistant mock déterministe ; Bedrock en phase 9. Même contrat de réponse.
 - N'invente jamais ; s'il ne sait pas, il le dit clairement et propose un signalement **pré-rempli** (catégorie + description déduites) que l'étudiant valide.
 - Rappelle que ses réponses peuvent être incomplètes.
 - Après chaque réponse : « Ça m'a aidé » / « Créer un signalement ».
@@ -48,9 +49,10 @@ OUVERT ──(prise en charge)──▶ EN_COURS ──(traité)──▶ RESOLU
 
 ## Accès aux données
 - Étudiant : uniquement ses incidents, ses photos, ses conversations, ses notifications.
-- Technicien : incidents assignés + file non assignée ; **pas** de dashboard global, **pas** de conversations IA.
+- Technicien : incidents assignés + file non assignée (route serveur dédiée) ; **pas** de dashboard global, **pas** de conversations IA.
 - Admin : tout sauf le contenu des conversations IA (statistiques agrégées uniquement).
-- L'identité de l'utilisateur est toujours prise du jeton Cognito côté serveur, jamais d'un paramètre client.
+- L'identité de l'utilisateur est toujours prise du jeton vérifié côté serveur (JWT local, Cognito en phase 9), jamais d'un paramètre client.
+- Les événements temps réel ne transportent que des identifiants ; le contenu est relu via l'API, qui applique ces droits.
 
 ## RGPD
 - Données minimales : nom, email école, rôle. Aucune donnée sensible demandée.

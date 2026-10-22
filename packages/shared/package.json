@@ -1,0 +1,13 @@
+{
+  "name": "@smartcampus/shared",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Configuration et règles métier partagées entre le front et l'API (aucune dépendance runtime).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

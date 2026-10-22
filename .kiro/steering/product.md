@@ -31,6 +31,7 @@ Gain de temps, transparence, pilotage par la donnée.
 - Transparence : l'étudiant voit toujours où en est sa demande et qui a fait quoi.
 - L'IA n'invente jamais : si elle ne sait pas, elle le dit et propose un signalement pré-rempli.
 - Ordre de construction : signalement + suivi → pilotage → assistant IA.
+- Version 100 % locale d'abord (phases 0 à 8), migration AWS ensuite (phase 9).
 
 ## Périmètre
 - **Must** : auth + rôles, signalement (catégorie, lieu, description, photo), suivi statut + historique, traitement technicien, tableau de bord admin.

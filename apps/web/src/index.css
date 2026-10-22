@@ -59,6 +59,11 @@ body {
   font-weight: 600;
 }
 
+.home__status--error {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
 .home__note {
   color: var(--color-muted);
   font-size: 0.875rem;

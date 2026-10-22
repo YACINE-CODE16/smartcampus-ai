@@ -1,186 +1,208 @@
 # Conception — SmartCampus AI
 
-## 1. Vue d'ensemble
+> Stratégie : une version **100 % locale** d'abord (phases 0 à 8), sans dépendance AWS, puis une **migration AWS en phase 9** en remplaçant les adapters. Le code métier ne change pas entre les deux.
+
+## 1. Vue d'ensemble (local)
 
 ```
-                ┌──────────────────────── Amplify Hosting (CloudFront) ────────────────────────┐
- Navigateur ──▶ │  React + Vite (SPA)  · Amplify UI Authenticator · React Router · Recharts    │
-                └──────┬───────────────────────────┬──────────────────────────┬────────────────┘
-                       │ JWT Cognito               │ GraphQL + subscriptions  │ S3 (URL signées)
-                       ▼                           ▼                          ▼
-                 ┌──────────┐          ┌───────────────────────┐        ┌───────────┐
-                 │ Cognito  │          │ AppSync (Amplify Data)│        │ S3 photos │
-                 │ STUDENT  │          │  modèles DynamoDB     │        └───────────┘
-                 │ TECHNIC. │          │  requêtes/mutations   │
-                 │ ADMIN    │          │  custom → Lambdas     │
-                 └────┬─────┘          └──────────┬────────────┘
-      post-confirmation│                          │
-                       ▼                          ▼
-              ┌────────────────┐   ┌──────────────────────────────────────────────────┐
-              │ add-to-student │   │ incident-workflow · campus-queries · assistant   │
-              └────────────────┘   │ auto-close (planifiée, quotidienne)              │
-                                   └───────┬──────────────────┬──────────────┬────────┘
-                                           ▼                  ▼              ▼
-                                       Amazon SES      Amazon Bedrock     DynamoDB
-                                       (emails)        (Converse API)     (via AppSync IAM)
+ Navigateur ──▶ apps/web  (React + Vite, http://localhost:5173)
+                   │  /api/*  (proxy Vite → même origine, cookie httpOnly)
+                   ▼
+               apps/api  (Node + Express + TypeScript, http://localhost:3000)
+                   │
+     ┌─────────────┼──────────────────────────────────────────────┐
+     │  http/      routes, middlewares (auth, rôle, validation)    │
+     │  services/  cas d'usage métier — ne dépendent QUE des ports │
+     │  ports/     interfaces d'adapters                           │
+     │  adapters/local/  implémentations locales                   │
+     └─────────────┬──────────────────────────────────────────────┘
+                   ▼
+   SQLite (Prisma) · disque (photos) · boîte d'envoi locale (emails)
+   assistant mock · minuterie in-process · SSE (temps réel)
+
+ packages/shared : configuration métier, règles pures, types — importé par web ET api
 ```
 
-**Principe clé :** les clients **lisent** directement les modèles (avec les règles d'autorisation Amplify) mais **toutes les écritures métier** sur `Incident`, `IncidentEvent`, `Rating` et `Notification` passent par des mutations custom traitées par la Lambda `incident-workflow`. Elle valide les transitions avec `shared/domain`, écrit via l'API AppSync (signature IAM) — ce qui déclenche les subscriptions temps réel — puis émet les notifications.
+**Principe clé :** les routes HTTP sont fines ; elles authentifient, valident l'entrée puis appellent un service. Les services appliquent les règles (`packages/shared/src/domain`) et les droits d'accès, et n'utilisent que les **ports**. Seule la racine de composition (`apps/api/src/container.ts`) choisit les implémentations, selon `ADAPTERS_MODE` (`local` aujourd'hui, `aws` en phase 9).
 
-## 2. Configuration et règles partagées (`shared/`)
+## 2. Ports (interfaces d'adapters)
 
-Aucune règle métier en dur dans l'UI ni dans les Lambdas : tout passe par `shared/`, importé des deux côtés.
+Définis dans `apps/api/src/ports/`.
 
-```ts
-// shared/config/statuses.ts
-export const INCIDENT_STATUSES = ['OUVERT', 'EN_COURS', 'RESOLU', 'FERME'] as const;
-export type IncidentStatus = (typeof INCIDENT_STATUSES)[number];
-export const STATUS_LABELS: Record<IncidentStatus, string> = { OUVERT: 'Ouvert', EN_COURS: 'En cours', RESOLU: 'Résolu', FERME: 'Fermé' };
+| Port | Rôle | Implémentation locale | Implémentation AWS (phase 9) | Phase |
+|---|---|---|---|---|
+| `AuthProvider` | inscription, vérification, connexion, vérification du jeton, rôles | comptes SQLite, mots de passe hachés (scrypt natif Node), **JWT** HS256 en cookie httpOnly | Cognito (groupes) ; inscription/connexion côté navigateur via Amplify Auth ; vérification avec `aws-jwt-verify` | 1 |
+| `Repositories` (incidents, événements, notes, conversations, notifications, catégories) + `UnitOfWork` | persistance, écritures atomiques et conditionnelles | **Prisma + SQLite**, transactions Prisma | DynamoDB via Amplify Data / AppSync, `TransactWriteItems` | 2+ |
+| `FileStorage` | photos : cible d'envoi, URL de lecture temporaire, suppression | **disque local** (`UPLOAD_DIR`), URL signées HMAC servies par l'API | S3, URL présignées | 2 |
+| `RealtimePublisher` | pousser « quelque chose a changé » aux bons destinataires | **SSE** (`GET /api/events`) | subscriptions AppSync | 4 |
+| `Scheduler` | tâches planifiées (fermeture J+7) | minuterie dans le processus de l'API | EventBridge Scheduler → Lambda | 4 |
+| `AiAssistant` + `KnowledgeProvider` | réponses de l'assistant, recherche FAQ | **mock** déterministe + FAQ JSON | Bedrock Converse (`BEDROCK_MODEL_ID`) + FAQ JSON (puis Knowledge Base) | 6 |
+| `Mailer` | emails | **boîte d'envoi locale** : console + fichiers `.eml` dans `storage/outbox` | Amazon SES | 1 (code de vérification), 7 |
 
-// shared/config/transitions.ts — table unique des transitions autorisées
-export const TRANSITIONS: Transition[] = [
-  { from: 'OUVERT',   to: 'EN_COURS', roles: ['TECHNICIAN', 'ADMIN'] },
-  { from: 'EN_COURS', to: 'RESOLU',   roles: ['TECHNICIAN', 'ADMIN'] },
-  { from: 'RESOLU',   to: 'OUVERT',   roles: ['STUDENT'] },            // réouverture
-  { from: 'RESOLU',   to: 'FERME',    roles: ['STUDENT', 'ADMIN', 'SYSTEM'] },
-];
+`RealtimePublisher` n'était pas dans la liste du brief. Je l'ai ajouté parce que le temps réel est la partie qui change le plus entre local (SSE) et AWS (AppSync).
 
-// shared/config/settings.ts
-export const AUTO_CLOSE_DAYS = 7;
-export const ANONYMIZE_AFTER_MONTHS = 12;
-export const MAX_PHOTO_MB = 10;
-```
+## 3. Configuration et règles partagées (`packages/shared`)
 
-- `shared/config/categories.ts` : catégories **par défaut** (seed initial du modèle `Category`, ensuite gérées en base par l'admin).
-- `shared/config/urgencies.ts`, `shared/config/buildings.ts` : listes + libellés.
-- `shared/domain/incident.ts` : fonctions pures `canTransition(from, to, role, ctx)`, `allowedTransitions(...)`, `buildTitle(...)`, `trackingNumber(id)`.
-- `shared/domain/kpi.ts` : calculs purs des KPIs (testés unitairement, réutilisés par la Lambda dashboard et le seed).
-- `shared/faq/faq.json` : 20 Q/R.
+Aucune règle métier en dur dans l'UI ni dans l'API : tout vient de `@smartcampus/shared`.
 
-## 3. Modèle de données (Amplify Data)
+- `config/roles.ts` : rôles, libellés, priorité `ADMIN > TECHNICIAN > STUDENT`, `primaryRole()`.
+- `config/statuses.ts` : statuts, libellés, **table unique des transitions** (`TRANSITIONS`).
+- `config/urgencies.ts`, `config/buildings.ts`, `config/categories.ts` (catégories par défaut, ensuite gérées en base), `config/settings.ts` (J+7, 12 mois, 10 Mo, TTL des URL).
+- `types/entities.ts` : entités ; dates en chaînes ISO 8601 (identique en SQLite, JSON et DynamoDB).
+- `types/api.ts` : contrats HTTP.
+- `domain/` (phase 2+) : fonctions pures testées (`allowedTransitions`, `canTransition`, `buildTitle`, `trackingNumber`, politique d'accès, calculs KPI). Le front s'en sert pour afficher les bonnes actions et l'API pour les imposer.
+- `faq/faq.json` (phase 6) : 20 Q/R.
 
-Les identifiants utilisateurs stockés sont le `sub` Cognito (règles d'owner configurées avec `identityClaim('sub')`).
+## 4. Modèle de données (Prisma / SQLite)
 
-| Modèle | Champs | Lecture | Écriture |
-|---|---|---|---|
-| **Incident** | id, trackingNumber, title, categoryId, categoryLabel*, building, room, description, photoKey?, urgency, status, owner, ownerName*, assignedTo?, assignedToName*, technicianComment?, createdAt, updatedAt, resolvedAt?, closedAt?, anonymizedAt? | `owner` ; `assignedTo` ; groupe `ADMIN` | Lambda uniquement |
-| **IncidentEvent** | incidentId, fromStatus?, toStatus, type (`STATUS`/`ASSIGN`/`URGENCY`/`COMMENT`), comment?, authorId, authorName*, authorRole, readers[]*, createdAt | `readers` (propriétaire + technicien assigné) ; `ADMIN` | Lambda uniquement |
-| **Rating** | incidentId, score 1–5, comment?, owner, createdAt | `owner` ; `ADMIN` | Lambda (`rateIncident`) |
-| **AssistantConversation** | id, owner, messages (JSON), helpful?, ticketCreated, incidentId?, createdAt | `owner` uniquement | `owner` + Lambda assistant |
-| **Notification** | userId, type, incidentId, title, read, createdAt | `userId` | Lambda (création) ; `userId` (marquer lu) |
-| **Category** | id, label, description?, active, order | tout utilisateur connecté | `ADMIN` |
+Les modèles sont ajoutés à `apps/api/prisma/schema.prisma` au fil des phases ; les types exposés sont ceux de `packages/shared/src/types/entities.ts`.
 
-`*` champs dénormalisés (non listés dans le brief) : ils évitent des jointures côté client et permettent d'afficher un nom sans exposer l'annuaire Cognito. `readers` permet de restreindre l'historique aux mêmes personnes que l'incident ; il est mis à jour par la Lambda lors d'une (ré)assignation.
+| Modèle | Champs principaux | Phase |
+|---|---|---|
+| **User** | id, email (unique), name, passwordHash, emailVerified, verificationCode(+expiration), roles (table `UserRole`), createdAt | 1 |
+| **Incident** | id, trackingNumber, title, categoryId, categoryLabel*, building, room, description, photoKey?, urgency, status, ownerId, ownerName*, assignedToId?, assignedToName*, technicianComment?, createdAt, updatedAt, resolvedAt?, closedAt?, anonymizedAt? | 2 |
+| **IncidentEvent** | id, incidentId, type (`CREATED`/`STATUS`/`ASSIGN`/`URGENCY`/`COMMENT`), fromStatus?, toStatus, comment?, authorId?, authorName*, authorRole, createdAt | 2 |
+| **Category** | id, label, description?, active, order | 2 |
+| **Rating** | id, incidentId (unique), ownerId, score 1–5, comment?, createdAt | 3 |
+| **AssistantConversation** | id, ownerId, messages (JSON), helpful?, ticketCreated, incidentId?, createdAt | 6 |
+| **Notification** | id, userId, type, incidentId, title, read, createdAt | 7 |
 
-**Numéro de suivi :** `SC-` + 8 premiers caractères de l'id en majuscules (ex. `SC-3F9A1B2C`). Pas de compteur séquentiel (évite une table de compteur atomique).
+`*` champs dénormalisés (choix D9) : affichage sans jointure ni exposition de l'annuaire, et transposition directe vers DynamoDB.
 
-## 4. Autorisations
+**Numéro de suivi (D3)** : `SC-` + 8 premiers caractères de l'id en majuscules.
+
+## 5. Authentification et autorisations
+
+- **Jeton** : JWT signé par l'API (`JWT_SECRET`), contenant `sub`, `email`, `name`, `roles` ; durée 8 h ; transmis en **cookie httpOnly `SameSite=Lax`**. Le cookie permet aussi d'authentifier le flux SSE (`EventSource` ne sait pas envoyer d'en-tête).
+- **Inscription** : nom, email, mot de passe → code à 6 chiffres envoyé via `Mailer` (visible dans la console de l'API et dans `apps/api/storage/outbox/`) → compte activé + rôle `STUDENT`.
+- **Middlewares** : `requireAuth` (vérifie le jeton via `AuthProvider`, place `req.user`), `requireRole(...roles)`.
+- **Politique d'accès** (service + règles pures partagées), appliquée côté API sur chaque lecture et écriture :
 
 | Ressource | STUDENT | TECHNICIAN | ADMIN |
 |---|---|---|---|
-| Incident (lecture) | les siens | assignés à lui (+ file via requête custom) | tous |
-| IncidentEvent | ceux de ses incidents | ceux de ses incidents assignés | tous |
-| Photos S3 | lecture/écriture sous `incident-photos/{sub}/` | URL signée via `getIncidentPhotoUrl` si assigné | URL signée via `getIncidentPhotoUrl` |
-| AssistantConversation | les siennes | ✗ | ✗ (stats agrégées via `getDashboardStats`) |
-| Category | lecture | lecture | CRUD |
-| Dashboard | ✗ | ✗ | ✓ |
+| Incident (lecture) | les siens | assignés à lui + file « à prendre » via route dédiée | tous |
+| Historique d'un incident | si l'incident est lisible | idem | tous |
+| Photos | les siennes | incidents assignés | toutes |
+| Conversations IA | les siennes | ✗ | ✗ (statistiques agrégées uniquement) |
+| Catégories | lecture (actives) | lecture | CRUD |
+| Tableau de bord | ✗ | ✗ | ✓ |
 
-**File non assignée des techniciens :** elle est exposée par la requête custom `listUnassignedIncidents` (groupes `TECHNICIAN`, `ADMIN`) plutôt que par une lecture de groupe sur `Incident`, pour qu'un technicien ne puisse pas lire via l'API les incidents assignés à un collègue. Le rafraîchissement temps réel de la file se fait via une subscription custom légère (`onQueueChanged`, ne contenant que l'id) qui déclenche un rechargement. *Point à confirmer en phase 4 ; repli possible : rechargement toutes les 15 s.*
+- **File « à prendre » (décision PO)** : route dédiée `GET /api/technician/queue` (rôles TECHNICIAN, ADMIN) qui ne renvoie que les incidents non assignés et non fermés. Un technicien ne peut jamais lire un incident assigné à un collègue (`GET /api/incidents/:id` → 403).
+- L'identité vient **toujours** du jeton, jamais du corps ou de la query de la requête.
 
-## 5. Opérations custom (AppSync → Lambda)
+## 6. API HTTP (prévisionnelle)
 
-| Opération | Type | Groupes | Lambda | Effet |
-|---|---|---|---|---|
-| `reportIncident` | mutation | STUDENT | incident-workflow | crée l'incident `OUVERT` + événement initial ; titre auto |
-| `takeIncident` | mutation | TECHNICIAN | incident-workflow | assigne à soi + `EN_COURS` (écriture conditionnelle anti-doublon) |
-| `assignIncident` | mutation | ADMIN | incident-workflow | assigne à un technicien, notifie |
-| `changeIncidentStatus` | mutation | TECHNICIAN, ADMIN | incident-workflow | transition validée + commentaire |
-| `updateIncidentUrgency` | mutation | TECHNICIAN, ADMIN | incident-workflow | change l'urgence, événement |
-| `reopenIncident` | mutation | STUDENT (propriétaire) | incident-workflow | `RESOLU → OUVERT` |
-| `rateIncident` | mutation | STUDENT (propriétaire) | incident-workflow | `Rating` + `RESOLU → FERME` |
-| `listUnassignedIncidents` | requête | TECHNICIAN, ADMIN | campus-queries | file « À prendre » |
-| `listTechnicians` | requête | ADMIN | campus-queries | `ListUsersInGroup TECHNICIAN` |
-| `getIncidentPhotoUrl` | requête | tous | campus-queries | URL signée 5 min si l'appelant a accès |
-| `getDashboardStats` | requête | ADMIN | campus-queries | KPIs + séries des graphiques |
-| `askAssistant` | mutation | STUDENT | assistant | réponse Bedrock structurée |
+| Méthode et route | Rôles | Service | Phase |
+|---|---|---|---|
+| `GET /api/health` | public | — | 0 |
+| `POST /api/auth/signup` · `/confirm` · `/login` · `/logout` · `GET /api/auth/me` | public / connecté | AuthService | 1 |
+| `GET /api/categories` | connecté | CategoryService | 2 |
+| `POST /api/files/upload-target` · `PUT /api/files/upload/:token` · `GET /api/files/:token` | connecté | FileService | 2 |
+| `POST /api/incidents` | STUDENT | IncidentWorkflow.report | 2 |
+| `GET /api/incidents?mine=1` · `GET /api/incidents/:id` · `GET /api/incidents/:id/events` | selon politique | IncidentQueries | 3 |
+| `POST /api/incidents/:id/reopen` · `POST /api/incidents/:id/rating` | STUDENT (propriétaire) | IncidentWorkflow | 3 |
+| `GET /api/technician/queue` · `GET /api/technician/incidents` | TECHNICIAN, ADMIN | IncidentQueries | 4 |
+| `POST /api/incidents/:id/take` | TECHNICIAN | IncidentWorkflow.take (écriture conditionnelle) | 4 |
+| `POST /api/incidents/:id/status` · `PATCH /api/incidents/:id/urgency` | TECHNICIAN (assigné), ADMIN | IncidentWorkflow | 4 |
+| `GET /api/admin/incidents?status&categoryId&building&urgency&assignedToId` · `POST /api/incidents/:id/assign` · `GET /api/admin/technicians` | ADMIN | IncidentQueries / Workflow | 4 |
+| `POST/PATCH /api/admin/categories` | ADMIN | CategoryService | 4 |
+| `GET /api/events` (SSE) | connecté | RealtimePublisher | 4 |
+| `GET /api/admin/dashboard` | ADMIN | DashboardService | 5 |
+| `POST /api/assistant/messages` · `POST /api/assistant/conversations/:id/feedback` | STUDENT | AssistantService | 6 |
+| `GET /api/notifications` · `POST /api/notifications/:id/read` · `/read-all` | connecté | NotificationService | 7 |
 
-Chaque handler lit l'identité (`sub`, groupes) depuis `event.identity`, jamais depuis les arguments.
+Erreurs : corps `{ error, message }` ; `DomainError` → 400/401/403/404/409.
 
-## 6. Lambdas
+## 7. Temps réel (SSE)
 
-- **add-to-student** (trigger post-confirmation Cognito) : `AdminAddUserToGroup(STUDENT)`.
-- **incident-workflow** : opérations ci-dessus ; écrit via le client Amplify Data (IAM) ; appelle `notify()`.
-- **campus-queries** : lectures transverses. Le dashboard agrège en mémoire (volume MVP faible : scan acceptable, à revoir au-delà de ~10 000 incidents).
-- **auto-close** : planifiée `every day` ; ferme les `RESOLU` depuis > `AUTO_CLOSE_DAYS`, auteur `SYSTEM`.
-- **assistant** : voir §8.
-- **notify()** (module partagé `amplify/functions/_shared/notify.ts`) : crée la `Notification` puis tente l'email SES ; un échec SES est journalisé et n'interrompt pas l'action.
+- `GET /api/events` garde une connexion ouverte par onglet ; le hub en mémoire indexe les connexions par `userId` et par rôle.
+- Les services publient des événements **sans contenu sensible** (`incident.changed`, `queue.changed`, `notification.created` + identifiant). Le client recharge la ressource via l'API, qui applique les droits.
+- Destinataires : propriétaire + technicien assigné + rôle ADMIN pour `incident.changed` ; rôle TECHNICIAN pour `queue.changed` ; destinataire seul pour `notification.created`.
+- Reconnexion automatique native d'`EventSource` ; ping toutes les 25 s.
+- Phase 9 : remplacé par les subscriptions AppSync ; le hook front `useRealtime` garde la même signature.
 
-## 7. Front-end
+## 8. Services métier (`apps/api/src/services/`)
+
+- **AuthService** : délègue à `AuthProvider`, pose et retire le cookie.
+- **IncidentWorkflow** : `report`, `take`, `assign`, `changeStatus`, `updateUrgency`, `reopen`, `rate`. Pour chaque action : contrôle d'accès, `canTransition`, écriture atomique (incident + événement [+ note] [+ notification]) via `UnitOfWork`, publication temps réel, email (dont l'échec est journalisé sans bloquer).
+- **IncidentQueries** : lectures filtrées par la politique d'accès.
+- **DashboardService** : KPIs et séries des graphiques (calculs purs dans `shared/domain/kpi.ts`).
+- **AssistantService** : charge la conversation (propriétaire uniquement), récupère les passages FAQ et **les incidents de l'utilisateur connecté uniquement**, appelle `AiAssistant`, persiste.
+- **NotificationService** : crée la notification, publie, envoie l'email.
+- **Jobs** (`apps/api/src/jobs/`) : `auto-close` (quotidien, `0 3 * * *`), enregistré auprès du `Scheduler` ; exécutable à la demande (`npm run job -- auto-close`).
+
+## 9. Assistant IA (mock local)
+
+- Le **mock** est déterministe et suffisant pour la démo et les tests :
+  1. intention « suivi » (`mon signalement`, `où en est`, `SC-…`) → répond avec le statut réel des incidents de l'utilisateur ;
+  2. sinon, recherche FAQ (normalisation des accents, recouvrement de mots-clés, seuil de score) → réponse tirée de la FAQ ;
+  3. sinon → « Je ne sais pas répondre à cette question » + `suggestedIncident` (catégorie devinée par mots-clés, description = message de l'étudiant).
+- Chaque réponse rappelle que l'assistant peut être incomplet.
+- Contrat de sortie identique à celui de Bedrock (phase 9) : `{ answer, answeredFromSources, suggestedIncident? }`. Le prompt système de la version Bedrock est versionné dès la phase 6 (`apps/api/src/services/assistant/system-prompt.ts`).
+
+## 10. Front-end (`apps/web`)
 
 ```
-/connexion                    Authenticator Amplify UI (FR)
-/                             redirection selon le rôle
+/connexion · /inscription · /verification     écrans d'auth (FR)
+/                             redirection selon le rôle principal
 /etudiant                     Mes signalements
 /etudiant/signaler            Formulaire (pré-remplissable via state de navigation)
 /etudiant/incidents/:id       Détail, timeline, réouverture, note
 /etudiant/assistant           Chat
 /technicien                   Onglets « À prendre » / « Mes incidents »
-/technicien/incidents/:id     Détail + actions de statut
+/technicien/incidents/:id     Détail + actions
 /admin                        Tableau de bord
 /admin/incidents(/:id)        Liste filtrable, assignation
-/admin/categories             Gestion des catégories
+/admin/categories             Catégories
 /mentions                     Mentions et données personnelles (publique)
 ```
 
-- `RoleGuard` lit les groupes depuis `fetchAuthSession()` (`cognito:groups`).
-- Hooks de données (`useMyIncidents`, `useIncident`, …) basés sur `observeQuery` / `onUpdate` pour le temps réel.
-- Styles : CSS natif avec variables (thème Amplify UI aligné), mobile-first.
+- React Router, Recharts, CSS natif à variables, mobile-first.
+- Amplify UI n'est plus utilisé en local : les écrans d'auth sont faits maison (formulaires simples). En phase 9, choix entre garder ces écrans branchés sur Amplify Auth ou passer à l'`Authenticator` Amplify UI.
+- Accès aux données via un petit client `api.ts` (fetch + gestion d'erreurs) et des hooks `useXxx` ; `authClient` isole l'authentification pour la phase 9.
 
-## 8. Assistant IA
+## 11. Préparation des « Could »
 
-```
-askAssistant(conversationId?, message)
-  → charge la conversation (vérifie owner = sub)
-  → contexte = KnowledgeProvider.retrieve(message)      // FAQ JSON au MVP
-             + incidents de l'utilisateur (requête filtrée par owner = sub, 20 derniers)
-  → Bedrock Converse (modelId = env BEDROCK_MODEL_ID, temperature basse)
-  → sortie JSON imposée : { answer, answeredFromSources: boolean, suggestedIncident?: { categoryId, description, building?, room? } }
-  → persiste les messages, renvoie la réponse
-```
+- `packages/shared/src/domain/triage.ts` : interface `TriageSuggester` (`suggest(description) → { categoryId?, urgency?, confidence }`) sans implémentation.
+- Le formulaire de signalement accepte des valeurs initiales (déjà utilisé par l'assistant).
+- `GET /api/admin/dashboard` renvoie des sections nommées, extensibles.
 
-- `KnowledgeProvider` est une interface (`retrieve(query): Promise<Passage[]>`) ; implémentation MVP `FaqJsonProvider`, future `BedrockKnowledgeBaseProvider` sans changer le handler.
-- Le prompt système impose : français, uniquement les sources fournies, jamais d'invention, mention « réponses possiblement incomplètes », pré-remplissage si `answeredFromSources = false`.
-- Les incidents des autres utilisateurs ne sont jamais chargés : la requête est construite côté serveur avec le `sub` du jeton.
-- Modèle par défaut proposé : profil d'inférence EU d'un modèle Claude Haiku ou Amazon Nova Lite disponible en `eu-west-3` (vérifié en phase 6).
+## 12. RGPD — anonymisation
 
-## 9. Préparation des « Could »
+Service `anonymizeClosedIncidents(now)` + script `npm run anonymize` : incidents `FERME` depuis plus de 12 mois → description `[anonymisé]`, photo supprimée via `FileStorage`, commentaires effacés, `ownerId`/`ownerName` remplacés, `anonymizedAt` renseigné. Catégorie, bâtiment, dates, urgence et note sont conservés.
 
-- `shared/domain/triage.ts` : interface `TriageSuggester { suggest(description, photoKey?) → { categoryId?, urgency?, confidence } }`, sans implémentation.
-- Le formulaire de signalement accepte déjà des valeurs initiales (pré-remplissage), réutilisable pour une suggestion automatique.
-- `getDashboardStats` renvoie un objet extensible (sections nommées) pour ajouter des statistiques avancées.
+## 13. Phase 9 — migration AWS (cible)
 
-## 10. RGPD — anonymisation
+1. Implémenter `adapters/aws/` pour chaque port (Cognito, DynamoDB/Amplify Data, S3, SES, Bedrock, EventBridge, AppSync) et ajouter `ADAPTERS_MODE=aws` dans `container.ts`.
+2. Les services, les règles partagées et le front restent inchangés, à l'exception de `authClient` et `useRealtime` côté web.
+3. Hébergement : Amplify Hosting (front) ; les services tournent dans des Lambdas (résolveurs AppSync ou API derrière API Gateway). L'option sera arbitrée avec le PO en début de phase 9.
+4. Les tests des services tournent contre les deux jeux d'adapters.
 
-Script `scripts/anonymize-closed.ts` (et logique partagée réutilisable par une future Lambda planifiée) : pour chaque incident `FERME` avec `closedAt` > 12 mois → `description = '[anonymisé]'`, suppression S3 de la photo, `technicianComment` et commentaires d'événements effacés, `owner`/`ownerName` remplacés, `anonymizedAt` renseigné. Catégorie, bâtiment, dates, urgence et note conservés.
+## 14. Décisions validées par le PO
 
-## 11. Environnements et coûts
-
-- **Sandbox** par développeur (`npm run sandbox`) dans `eu-west-3`, profil AWS `smartcampus`.
-- **Production** : branche `main` sur Amplify Hosting.
-- Coûts attendus en démo : quasi nuls (offre gratuite Cognito / AppSync / DynamoDB / Lambda / S3) ; Bedrock à l'usage (quelques centimes pour la démo) ; détaillé en phase 8.
-
-## 12. Décisions prises par défaut (à valider par le PO)
-
-| # | Sujet non couvert par le brief | Choix (le plus simple) |
+| # | Sujet | Choix |
 |---|---|---|
-| D1 | Sous-catégories (« Salle : fermée, réservée… ») | une catégorie = libellé + description d'exemples, pas de sous-catégorie |
-| D2 | Saisie du lieu | bâtiment choisi dans une liste configurable + salle en texte libre |
-| D3 | Numéro de suivi | `SC-` + 8 caractères de l'id, pas de compteur séquentiel |
-| D4 | « Prendre en charge » | assigne le technicien **et** passe à `EN_COURS` en une action |
-| D5 | Réouverture | retour à `OUVERT` en gardant le même technicien assigné |
-| D6 | Délai de résolution après réouverture | calculé jusqu'à la **dernière** résolution |
-| D7 | Assignation par l'admin | ne change pas le statut ; crée un événement de type `ASSIGN` |
-| D8 | Saut de statut (`OUVERT → RESOLU`) | interdit, on passe toujours par `EN_COURS` |
-| D9 | Champs dénormalisés (noms, `readers`) | ajoutés au modèle pour l'affichage et les autorisations |
-| D10 | « Étudiant actif » | ≥ 1 signalement ou conversation IA sur les 30 derniers jours |
-| D11 | Visibilité des photos | propriétaire en direct ; technicien assigné et admin via URL signée temporaire |
+| D1 | Sous-catégories | une catégorie = libellé + description d'exemples |
+| D2 | Lieu | bâtiment dans une liste configurable + salle en texte libre |
+| D3 | Numéro de suivi | `SC-` + 8 caractères de l'id |
+| D4 | « Prendre en charge » | assigne **et** passe à `EN_COURS` |
+| D5 | Réouverture | retour à `OUVERT`, même technicien assigné |
+| D6 | Délai de résolution après réouverture | jusqu'à la dernière résolution |
+| D7 | Assignation par l'admin | ne change pas le statut ; événement `ASSIGN` |
+| D8 | Saut `OUVERT → RESOLU` | interdit |
+| D9 | Champs dénormalisés | ajoutés (noms d'affichage) |
+| D10 | « Étudiant actif » | ≥ 1 signalement ou conversation sur 30 jours |
+| D11 | Visibilité des photos | propriétaire, technicien assigné, admin ; URL temporaires signées |
+| D12 | File « à prendre » | route serveur dédiée ; temps réel par SSE en local |
+
+## 15. Décisions techniques prises par défaut (nouvelles, à signaler)
+
+| # | Sujet | Choix |
+|---|---|---|
+| T1 | Framework API | Express 5 + validation zod |
+| T2 | Temps réel local | SSE plutôt que WebSocket (unidirectionnel suffit, natif navigateur, passe par le proxy Vite) |
+| T3 | Transport du JWT | cookie httpOnly (compatible SSE, pas de jeton en JS) |
+| T4 | Hachage des mots de passe | `crypto.scrypt` natif Node (aucune dépendance) |
+| T5 | Paquet partagé | consommé en TypeScript source (pas de build) par Vite et tsx |
+| T6 | Port supplémentaire | `RealtimePublisher` |
+| T7 | Emails locaux | console + fichiers `.eml` (pas de serveur SMTP à installer) |

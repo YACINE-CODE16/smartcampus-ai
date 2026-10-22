@@ -10,6 +10,8 @@ Les critères d'acceptation suivent le format EARS : *QUAND / SI / PENDANT que <
 
 Priorité MoSCoW indiquée par exigence : **[M]** Must, **[S]** Should, **[C]** Could.
 
+> **Version locale (phases 0 à 8).** Les services AWS cités ci-dessous (Cognito, S3, SES, Bedrock, AppSync, Amplify Hosting) désignent la cible de la phase 9. D'ici là, chaque exigence est satisfaite par l'adapter local équivalent (voir `design.md` §2) : comptes et JWT locaux, stockage disque, boîte d'envoi locale, assistant mock, SSE. Les exigences 26.x (déploiement) relèvent de la phase 9.
+
 ---
 
 ## Épopée 0 — Accès et rôles

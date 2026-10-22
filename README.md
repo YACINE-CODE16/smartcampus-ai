@@ -3,74 +3,70 @@
 Signaler et suivre un incident du campus en moins de 2 minutes ; donner à l'administration une vision en temps réel de l'état du campus.
 
 - **Personas** : étudiant (`STUDENT`), technicien (`TECHNICIAN`), administrateur (`ADMIN`)
-- **Stack** : AWS Amplify Gen 2 (Cognito, AppSync/DynamoDB, S3, Lambda, Bedrock, SES) · React + Vite + TypeScript
-- **Région AWS** : `eu-west-3` (Paris)
+- **Version actuelle : 100 % locale**, aucun compte cloud nécessaire. Migration AWS prévue en phase 9.
+- **Stack** : monorepo npm · React + Vite · Node + Express + TypeScript · Prisma + SQLite
 
 Spécifications : [`.kiro/specs/smartcampus-ai/`](.kiro/specs/smartcampus-ai/) · Règles et conventions : [`.kiro/steering/`](.kiro/steering/)
 
 ## Prérequis
 
-- Node.js 20 ou plus récent, npm
-- AWS CLI v2
-- Un profil AWS nommé `smartcampus` réglé sur la région `eu-west-3` (voir ci-dessous)
+- Node.js 20.12 ou plus récent, npm
+- git
 
-### Configurer le profil AWS `smartcampus`
-
-Avec des clés d'accès IAM :
+## Démarrer
 
 ```bash
-aws configure --profile smartcampus
-# AWS Access Key ID / Secret Access Key : vos clés
-# Default region name : eu-west-3
-# Default output format : json
+npm install        # installe tous les workspaces et génère le client Prisma
+npm run setup      # crée apps/api/.env (secret JWT aléatoire) et applique les migrations
+npm run dev        # lance l'API (http://localhost:3000) et le front (http://localhost:5173)
 ```
 
-Avec IAM Identity Center (SSO) :
+Ouvrir http://localhost:5173 : la page d'accueil doit afficher « API connectée · base OK · mode local ».
 
-```bash
-aws configure sso --profile smartcampus   # région SSO de votre organisation, région par défaut : eu-west-3
-aws sso login --profile smartcampus
-```
-
-Vérification :
-
-```bash
-aws sts get-caller-identity --profile smartcampus
-```
-
-Au premier lancement dans un compte/région, Amplify demande d'amorcer CDK (« bootstrap ») et ouvre une page de la console AWS : validez-la, puis relancez la commande.
-
-## Démarrer en local
-
-```bash
-npm install
-npm run sandbox   # déploie un backend personnel dans AWS et génère amplify_outputs.json (laisser tourner)
-npm run dev       # dans un second terminal : http://localhost:5173
-```
-
-`npm run dev` a besoin de `amplify_outputs.json` : lancez la sandbox d'abord.
-
-## Scripts
+## Scripts (à la racine)
 
 | Commande | Rôle |
 |---|---|
-| `npm run sandbox` | backend de développement personnel (redéploie à chaque modification de `amplify/`) |
-| `npm run sandbox:delete` | supprime la sandbox et ses ressources AWS |
-| `npm run dev` | serveur de développement Vite |
-| `npm run build` | build de production |
-| `npm run typecheck` | vérification TypeScript front + backend |
+| `npm run dev` | API + front en mode watch |
+| `npm run setup` | prépare `.env` et la base |
+| `npm run typecheck` | TypeScript sur tous les workspaces |
 | `npm run lint` | lint (oxlint) |
+| `npm run build` | build de production du front |
+| `npm run db:migrate` | crée / applique une migration Prisma |
+| `npm run db:studio` | explorateur de la base SQLite |
 
 ## Arborescence
 
 ```
-amplify/   backend Amplify Gen 2 (auth, data, storage, functions)
-shared/    configuration et règles métier partagées front + Lambdas
-src/       application React
-scripts/   scripts d'administration (rôles, seed, anonymisation)
-.kiro/     specs (requirements, design, tasks) et steering
+apps/
+  web/        front React + Vite (proxy /api → API)
+  api/        API Express
+    prisma/   schéma et migrations SQLite
+    src/
+      ports/          interfaces d'adapters (Auth, Repositories, FileStorage, Mailer,
+                      AiAssistant, Scheduler, RealtimePublisher)
+      adapters/local/ implémentations locales (aws/ en phase 9)
+      services/       cas d'usage métier (ne dépendent que des ports)
+      http/           routes et middlewares
+      container.ts    choix des adapters selon ADAPTERS_MODE
+packages/
+  shared/     configuration métier, règles pures et types partagés front + API
+scripts/      scripts d'administration
+.kiro/        specs et steering
 ```
+
+## Équivalences local → AWS
+
+| Besoin | Local (phases 0 à 8) | AWS (phase 9) |
+|---|---|---|
+| Authentification | comptes SQLite + JWT | Cognito |
+| Données | Prisma + SQLite | DynamoDB (Amplify Data) |
+| Photos | disque `apps/api/storage/uploads` | S3 |
+| Emails | console + `apps/api/storage/outbox/*.eml` | SES |
+| Assistant IA | mock déterministe | Bedrock (Converse) |
+| Temps réel | Server-Sent Events | subscriptions AppSync |
+| Tâches planifiées | minuterie dans l'API | EventBridge + Lambda |
 
 ## Avancement
 
-Voir [`tasks.md`](.kiro/specs/smartcampus-ai/tasks.md). Phase courante : **0 — Spec et setup**.
+Voir [`tasks.md`](.kiro/specs/smartcampus-ai/tasks.md). Phase courante : **0 — Spec et setup** (terminée, en attente de validation).
