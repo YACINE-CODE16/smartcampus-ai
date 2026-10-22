@@ -1,11 +1,13 @@
+import type { Bilingual } from './i18n';
+
 /** Urgence ressentie, saisie par l'étudiant (US-05). */
 export const URGENCIES = ['FAIBLE', 'NORMALE', 'HAUTE'] as const;
 export type Urgency = (typeof URGENCIES)[number];
 
-export const URGENCY_LABELS: Record<Urgency, string> = {
-  FAIBLE: 'Faible',
-  NORMALE: 'Normale',
-  HAUTE: 'Haute',
+export const URGENCY_LABELS: Record<Urgency, Bilingual> = {
+  FAIBLE: { fr: 'Faible', en: 'Low' },
+  NORMALE: { fr: 'Normale', en: 'Normal' },
+  HAUTE: { fr: 'Haute', en: 'High' },
 };
 
 export const DEFAULT_URGENCY: Urgency = 'NORMALE';
@@ -14,11 +16,11 @@ export const DEFAULT_URGENCY: Urgency = 'NORMALE';
 export const PRIORITIES = ['FAIBLE', 'NORMALE', 'HAUTE', 'CRITIQUE'] as const;
 export type Priority = (typeof PRIORITIES)[number];
 
-export const PRIORITY_LABELS: Record<Priority, string> = {
-  FAIBLE: 'Faible',
-  NORMALE: 'Normale',
-  HAUTE: 'Haute',
-  CRITIQUE: 'Critique',
+export const PRIORITY_LABELS: Record<Priority, Bilingual> = {
+  FAIBLE: { fr: 'Faible', en: 'Low' },
+  NORMALE: { fr: 'Normale', en: 'Normal' },
+  HAUTE: { fr: 'Haute', en: 'High' },
+  CRITIQUE: { fr: 'Critique', en: 'Critical' },
 };
 
 /** Ordre de tri des files : critique d'abord. */

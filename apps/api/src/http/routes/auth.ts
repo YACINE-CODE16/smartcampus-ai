@@ -1,14 +1,14 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import type { DemoAccount } from '@smartcampus/shared';
+import { bi, LANGS, type DemoAccount } from '@smartcampus/shared';
 import type { Container } from '../../container';
 import { UnauthorizedError } from '../../domain/errors';
 import { currentUser, requireAuth } from '../middlewares/auth';
 import { parseBody } from '../validation';
 
 const loginSchema = z.object({
-  email: z.email('Email invalide'),
-  password: z.string().min(1, 'Mot de passe requis'),
+  email: z.email({ error: bi('Email invalide', 'Invalid email') }),
+  password: z.string({ error: bi('Mot de passe requis', 'Password required') }).min(1, bi('Mot de passe requis', 'Password required')),
 });
 
 /** Comptes de démo affichés sur la page de connexion (les adresses sont publiques dans DEMO.md). */
@@ -26,7 +26,7 @@ export function authRouter(container: Container): Router {
   router.post('/login', async (req, res) => {
     const { email, password } = parseBody(loginSchema, req.body);
     const user = await container.auth.authenticate(email, password);
-    if (!user) throw new UnauthorizedError('Email ou mot de passe incorrect.');
+    if (!user) throw new UnauthorizedError(bi('Email ou mot de passe incorrect.', 'Incorrect email or password.'));
     await container.sessions.issue(res, user);
     res.json(user);
   });
@@ -38,6 +38,14 @@ export function authRouter(container: Container): Router {
 
   router.get('/me', requireAuth(container), (req, res) => {
     res.json(currentUser(req));
+  });
+
+  /** US-38 : langue préférée (interface et emails). */
+  router.patch('/me', requireAuth(container), async (req, res) => {
+    const { locale } = parseBody(z.object({ locale: z.enum(LANGS) }), req.body);
+    const user = currentUser(req);
+    await container.prisma.user.update({ where: { id: user.id }, data: { locale } });
+    res.json({ ...user, locale });
   });
 
   router.get('/demo-accounts', async (_req, res) => {

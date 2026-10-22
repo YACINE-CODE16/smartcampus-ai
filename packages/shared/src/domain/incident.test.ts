@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   allowedTransitions,
   buildTitle,
+  canMerge,
+  canRate,
+  canRequalify,
   canTake,
   canView,
   computePriority,
@@ -43,14 +46,16 @@ describe('computePriority', () => {
     expect(computePriority('FAIBLE', 'CRITIQUE')).toBe('CRITIQUE'));
 });
 
-describe('isLate (R4)', () => {
+describe('isLate (US-18, délai cible par catégorie)', () => {
   const now = new Date('2026-10-22T12:00:00Z');
-  it('NOUVEAU older than 24h is late', () =>
-    expect(isLate({ status: 'NOUVEAU', createdAt: '2026-10-21T11:00:00Z' }, now)).toBe(true));
-  it('NOUVEAU younger than 24h is not late', () =>
-    expect(isLate({ status: 'NOUVEAU', createdAt: '2026-10-21T13:00:00Z' }, now)).toBe(false));
+  it('NOUVEAU older than the 24h default target is late', () =>
+    expect(isLate({ status: 'NOUVEAU', createdAt: '2026-10-21T11:00:00Z' }, 24, now)).toBe(true));
+  it('NOUVEAU younger than the target is not late', () =>
+    expect(isLate({ status: 'NOUVEAU', createdAt: '2026-10-21T13:00:00Z' }, 24, now)).toBe(false));
+  it('a shorter category target (2h) makes a 3h-old ticket late', () =>
+    expect(isLate({ status: 'NOUVEAU', createdAt: '2026-10-22T09:00:00Z' }, 2, now)).toBe(true));
   it('taken tickets are never late', () =>
-    expect(isLate({ status: 'EN_COURS', createdAt: '2026-10-01T00:00:00Z' }, now)).toBe(false));
+    expect(isLate({ status: 'EN_COURS', createdAt: '2026-10-01T00:00:00Z' }, 24, now)).toBe(false));
 });
 
 describe('canView (R1)', () => {
@@ -77,11 +82,11 @@ describe('transitions', () => {
     expect(allowedTransitions(agent, ticket())).toEqual([]);
     expect(allowedTransitions(otherAgent, ticket({ assignedToId: 'agt' }))).toEqual([]);
   });
-  it('owner confirms or contests a resolved ticket; contest counts as reopen', () => {
+  it('owner confirms or contests a resolved ticket; contest counts as reopen and needs a comment (US-11)', () => {
     const t = ticket({ status: 'RESOLU', assignedToId: 'agt' });
     const moves = allowedTransitions(student, t);
     expect(moves.map((x) => x.to)).toEqual(['FERME', 'EN_COURS']);
-    expect(moves.find((x) => x.to === 'EN_COURS')?.countsAsReopen).toBe(true);
+    expect(moves.find((x) => x.to === 'EN_COURS')).toMatchObject({ countsAsReopen: true, requiresComment: true });
     expect(allowedTransitions(otherStudent, t)).toEqual([]);
   });
   it('rejection requires a reason', () => {
@@ -99,5 +104,38 @@ describe('canTake (D4)', () => {
     expect(canTake(agent, ticket({ assignedToId: 'agt2' }))).toBe(false);
     expect(canTake(agent, ticket({ status: 'EN_COURS' }))).toBe(false);
     expect(canTake(student, ticket())).toBe(false);
+  });
+});
+
+describe('canRequalify (US-16)', () => {
+  it('assigned agent or admin, ticket not closed', () => {
+    expect(canRequalify(agent, ticket({ assignedToId: 'agt' }))).toBe(true);
+    expect(canRequalify(otherAgent, ticket({ assignedToId: 'agt' }))).toBe(false);
+    expect(canRequalify(agent, ticket())).toBe(false);
+    expect(canRequalify(admin, ticket())).toBe(true);
+    expect(canRequalify(admin, ticket({ status: 'FERME' }))).toBe(false);
+    expect(canRequalify(student, ticket())).toBe(false);
+  });
+});
+
+describe('canMerge (US-17)', () => {
+  const dup = { ...ticket({ assignedToId: 'agt' }), id: 'd' };
+  const target = { ...ticket({ status: 'EN_COURS', assignedToId: 'agt2' }), id: 't' };
+  it('admin merges two distinct open tickets', () => expect(canMerge(admin, dup, target)).toBe(true));
+  it('cannot merge a ticket into itself', () => expect(canMerge(admin, dup, { ...dup })).toBe(false));
+  it('cannot merge into a closed ticket', () => expect(canMerge(admin, dup, { ...target, status: 'FERME' })).toBe(false));
+  it('agent needs the duplicate assigned and the target visible', () => {
+    expect(canMerge(agent, dup, target)).toBe(false); // cible affectée à un collègue
+    expect(canMerge(agent, dup, { ...target, assignedToId: null })).toBe(true);
+  });
+});
+
+describe('canRate (US-12)', () => {
+  it('owner rates a resolved or closed ticket once', () => {
+    expect(canRate(student, ticket({ status: 'RESOLU' }), false)).toBe(true);
+    expect(canRate(student, ticket({ status: 'FERME' }), false)).toBe(true);
+    expect(canRate(student, ticket({ status: 'FERME' }), true)).toBe(false);
+    expect(canRate(student, ticket({ status: 'EN_COURS' }), false)).toBe(false);
+    expect(canRate(otherStudent, ticket({ status: 'FERME' }), false)).toBe(false);
   });
 });

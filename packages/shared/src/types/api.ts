@@ -1,4 +1,6 @@
+import type { Lang } from '../config/i18n';
 import type { ActorRole, Role } from '../config/roles';
+import type { NotificationParams, NotificationType } from '../domain/notifications';
 import type { IncidentStatus } from '../config/statuses';
 import type { Priority, Urgency } from '../config/urgencies';
 
@@ -26,6 +28,7 @@ export interface SessionUser {
   email: string;
   name: string;
   role: Role;
+  locale: Lang;
 }
 
 export interface DemoAccount {
@@ -38,8 +41,19 @@ export interface CategoryDto {
   id: string;
   slug: string;
   label: string;
+  labelEn: string;
   description: string;
+  descriptionEn: string;
   autoPriority: Priority | null;
+  /** Délai cible de prise en charge en heures (US-18). */
+  targetHours: number;
+}
+
+/** Libellé de catégorie dans une langue donnée. */
+export interface CategoryRef {
+  id: string;
+  label: string;
+  labelEn: string;
 }
 
 export interface BuildingDto {
@@ -67,7 +81,7 @@ export interface IncidentSummary {
   status: IncidentStatus;
   urgency: Urgency;
   priority: Priority;
-  category: { id: string; label: string };
+  category: CategoryRef;
   building: { id: string; name: string };
   room: string;
   owner: PersonRef;
@@ -81,7 +95,7 @@ export interface IncidentSummary {
 
 export interface IncidentEventDto {
   id: string;
-  type: 'CREATED' | 'STATUS' | 'ASSIGN' | 'UPDATE';
+  type: 'CREATED' | 'STATUS' | 'ASSIGN' | 'UPDATE' | 'MERGE';
   fromStatus: IncidentStatus | null;
   toStatus: IncidentStatus | null;
   comment: string | null;
@@ -90,9 +104,17 @@ export interface IncidentEventDto {
   createdAt: ISODate;
 }
 
+export interface RatingDto {
+  score: number;
+  comment: string | null;
+  createdAt: ISODate;
+}
+
 export interface IncidentDetail extends IncidentSummary {
   description: string;
   rejectionReason: string | null;
+  mergedInto: { id: string; ticketNumber: string } | null;
+  rating: RatingDto | null;
   takenAt: ISODate | null;
   resolvedAt: ISODate | null;
   closedAt: ISODate | null;
@@ -106,4 +128,54 @@ export interface IncidentListQuery {
   categoryId?: string;
   buildingId?: string;
   assignedToId?: string;
+  priority?: Priority;
+  /** Uniquement les tickets en retard (US-18). */
+  late?: boolean;
+  /** Recherche dans le numéro, le titre et la salle (US-27). */
+  q?: string;
+  /** Période de création (ISO, US-27). */
+  from?: ISODate;
+  to?: ISODate;
 }
+
+export interface InternalNoteDto {
+  id: string;
+  body: string;
+  author: PersonRef;
+  createdAt: ISODate;
+}
+
+export interface NotificationDto {
+  id: string;
+  type: NotificationType;
+  incidentId: string | null;
+  params: NotificationParams;
+  read: boolean;
+  createdAt: ISODate;
+}
+
+export interface NotificationList {
+  items: NotificationDto[];
+  unread: number;
+}
+
+export interface AgentDto {
+  id: string;
+  name: string;
+  email: string;
+  /** Tickets ouverts affectés (US-13, US-33). */
+  openCount: number;
+}
+
+export interface AlertsResponse {
+  /** Tickets critiques ouverts (R3). */
+  critical: IncidentSummary[];
+  /** Tickets au-delà du délai cible (US-18). */
+  late: IncidentSummary[];
+}
+
+/** Événements temps réel (SSE) : identifiants uniquement, le client recharge via l'API. */
+export type LiveEvent =
+  | { type: 'incident.changed'; id: string }
+  | { type: 'notification'; unread: number }
+  | { type: 'alert'; kind: 'critical' | 'late'; id: string };

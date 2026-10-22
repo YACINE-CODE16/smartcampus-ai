@@ -8,14 +8,14 @@ Un commit par bloc. Les tests existants doivent passer ; chaque nouvelle règle 
 - [x] Seed : 5 comptes, catégories, 5 bâtiments, 20 FAQ, 60 tickets sur 30 jours
 
 ## Bloc a — Traitement agent/admin (US-13 à US-18) + moteur de notifications (US-10)
-- [ ] a1 Schéma : InternalNote, Notification, AuditLog, Rating, KbDocument, AssistantInteraction ; Category.targetHours/labelEn ; Incident.mergedIntoId ; User.locale
-- [ ] a2 Règles pures : `isLate` avec délai cible, `canMerge` + tests
-- [ ] a3 Ports `Mailer` (console/SES) ; `NotificationService` ; hub SSE ; `AuditService`
-- [ ] a4 Workflow : take (conditionnel), transition, assign, update (catégorie/urgence), merge, notes internes + tests d'intégration
-- [ ] a5 Contrôle périodique des délais cibles + `GET /admin/alerts` ; `GET/PATCH /admin/categories`
-- [ ] a6 i18n (infrastructure `t(fr, en)`) pour tout nouvel écran
-- [ ] a7 Front agent : files « Mes tickets » / « Non affectés », détail + actions + notes internes
-- [ ] a8 Front admin : liste filtrable, affectation, alertes temps réel, délais cibles
+- [x] a1 Schéma : InternalNote, Notification, AuditLog, Rating, KbDocument, AssistantInteraction ; Category.targetHours/labelEn ; Incident.mergedIntoId ; User.locale
+- [x] a2 Règles pures : `isLate` avec délai cible, `canMerge` + tests
+- [x] a3 Ports `Mailer` (console/SES) ; `NotificationService` ; hub SSE ; `AuditService`
+- [x] a4 Workflow : take (conditionnel), transition, assign, update (catégorie/urgence), merge, notes internes + tests d'intégration
+- [x] a5 Contrôle périodique des délais cibles + `GET /admin/alerts` ; `GET/PATCH /admin/categories`
+- [x] a6 i18n (infrastructure `t(fr, en)`) pour tout nouvel écran
+- [x] a7 Front agent : files « Mes tickets » / « Non affectés », détail + actions + notes internes
+- [x] a8 Front admin : liste filtrable, affectation, alertes temps réel, délais cibles
 
 ## Bloc b — Dashboard (US-27 à US-33)
 - [ ] b1 `kpi.ts` (délai moyen, taux, satisfaction, buckets jour/semaine/mois/année) + tests

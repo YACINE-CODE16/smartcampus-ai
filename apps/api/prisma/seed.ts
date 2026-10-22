@@ -6,7 +6,7 @@
  *   dont 2 Sécurité et 3 tickets NOUVEAU de plus de 24 h (en retard)
  */
 import { readFileSync } from 'node:fs';
-import { buildTitle, computePriority, type IncidentStatus, type Priority, type Urgency } from '@smartcampus/shared';
+import { bi, buildTitle, computePriority, type IncidentStatus, type Priority, type Urgency } from '@smartcampus/shared';
 import { hashPassword } from '../src/adapters/password';
 import { env } from '../src/config/env';
 import { createPrismaClient } from '../src/db';
@@ -42,13 +42,21 @@ const EXTRA_STUDENTS = [
 ];
 
 const CATEGORIES = [
-  { slug: 'salle', label: 'Salle', description: 'Fermée, réservée, inaccessible', autoPriority: null },
-  { slug: 'materiel', label: 'Matériel', description: 'Vidéoprojecteur, PC, mobilier', autoPriority: null },
-  { slug: 'reseau', label: 'Réseau', description: 'Wifi, câblé, accès comptes', autoPriority: null },
-  { slug: 'proprete', label: 'Propreté / sanitaires', description: 'Salissures, sanitaires, chauffage', autoPriority: null },
-  { slug: 'securite', label: 'Sécurité', description: 'Porte, éclairage, danger — traité en priorité critique', autoPriority: 'CRITIQUE' },
-  { slug: 'autre', label: 'Autre', description: 'Tout autre problème', autoPriority: null },
-] as const satisfies readonly { slug: string; label: string; description: string; autoPriority: Priority | null }[];
+  { slug: 'salle', label: 'Salle', labelEn: 'Room', description: 'Fermée, réservée, inaccessible', descriptionEn: 'Locked, booked, inaccessible', autoPriority: null, targetHours: 24 },
+  { slug: 'materiel', label: 'Matériel', labelEn: 'Equipment', description: 'Vidéoprojecteur, PC, mobilier', descriptionEn: 'Projector, PC, furniture', autoPriority: null, targetHours: 24 },
+  { slug: 'reseau', label: 'Réseau', labelEn: 'Network', description: 'Wifi, câblé, accès comptes', descriptionEn: 'Wi-Fi, wired, account access', autoPriority: null, targetHours: 24 },
+  { slug: 'proprete', label: 'Propreté / sanitaires', labelEn: 'Cleaning / restrooms', description: 'Salissures, sanitaires, chauffage', descriptionEn: 'Dirt, restrooms, heating', autoPriority: null, targetHours: 24 },
+  { slug: 'securite', label: 'Sécurité', labelEn: 'Safety', description: 'Porte, éclairage, danger — traité en priorité critique', descriptionEn: 'Door, lighting, hazard — handled as critical', autoPriority: 'CRITIQUE', targetHours: 4 },
+  { slug: 'autre', label: 'Autre', labelEn: 'Other', description: 'Tout autre problème', descriptionEn: 'Any other issue', autoPriority: null, targetHours: 24 },
+] as const satisfies readonly {
+  slug: string;
+  label: string;
+  labelEn: string;
+  description: string;
+  descriptionEn: string;
+  autoPriority: Priority | null;
+  targetHours: number;
+}[];
 
 const BUILDINGS = [
   { code: 'A', name: 'Bâtiment A – Enseignement', rooms: ['A101', 'A102', 'A204', 'A208', 'A305', 'Hall'] },
@@ -101,7 +109,11 @@ const DESCRIPTIONS: Record<string, string[]> = {
 const START_COMMENTS = ['Pris en charge, intervention prévue dans la journée.', 'Technicien en route.', 'Je passe vérifier sur place.', null];
 const RESOLVE_COMMENTS = ['Problème corrigé, merci pour le signalement.', 'Matériel remplacé.', 'Réparation effectuée, tout fonctionne.', 'Réglage effectué.'];
 const CONTEST_COMMENTS = ['Le problème est revenu ce matin.', 'Toujours pas réglé, désolé.'];
-const REJECT_REASONS = ['Doublon du ticket déjà en cours pour cette salle.', 'Hors périmètre : à adresser à la scolarité.', 'Problème non constaté sur place après vérification.'];
+const REJECT_REASONS = [
+  bi('Hors périmètre : à adresser à la scolarité.', 'Out of scope: please contact the registrar.'),
+  bi('Problème non constaté sur place après vérification.', 'Issue not found on site after inspection.'),
+];
+const RATING_COMMENTS = ['Rapide et efficace, merci !', 'Intervention propre.', 'Un peu long mais réglé.', null, null];
 
 type OwnerKey = 'alice' | 'bob' | 'extra';
 interface Spec {
@@ -170,7 +182,7 @@ async function main() {
   const now = Date.now();
   console.log('Réinitialisation des données…');
   await prisma.$executeRawUnsafe(
-    'TRUNCATE "IncidentEvent", "Incident", "FaqEntry", "Category", "Building", "User" RESTART IDENTITY CASCADE',
+    'TRUNCATE "AuditLog", "AssistantInteraction", "Notification", "Rating", "InternalNote", "IncidentEvent", "Incident", "KbDocument", "FaqEntry", "Category", "Building", "User" RESTART IDENTITY CASCADE',
   );
 
   const demoHash = await hashPassword(env.DEMO_PASSWORD);
@@ -255,7 +267,7 @@ async function main() {
 
     if (spec.assignedOnly) {
       assignedTo = agent;
-      ev({ type: 'ASSIGN', fromStatus: 'NOUVEAU', toStatus: 'NOUVEAU', comment: `Affecté à ${agent.name}`, authorId: users.claire.id, authorRole: 'ADMIN' }, t + toAssign);
+      ev({ type: 'ASSIGN', fromStatus: 'NOUVEAU', toStatus: 'NOUVEAU', comment: bi(`Affecté à ${agent.name}`, `Assigned to ${agent.name}`), authorId: users.claire.id, authorRole: 'ADMIN' }, t + toAssign);
     }
 
     if (spec.status === 'REJETE') {
@@ -268,7 +280,7 @@ async function main() {
     } else if (spec.status !== 'NOUVEAU') {
       // La moitié des tickets passe par une affectation admin avant la prise en charge.
       if (rand() < 0.5) {
-        ev({ type: 'ASSIGN', fromStatus: 'NOUVEAU', toStatus: 'NOUVEAU', comment: `Affecté à ${agent.name}`, authorId: users.claire.id, authorRole: 'ADMIN' }, t + Math.min(toAssign, toTake / 2));
+        ev({ type: 'ASSIGN', fromStatus: 'NOUVEAU', toStatus: 'NOUVEAU', comment: bi(`Affecté à ${agent.name}`, `Assigned to ${agent.name}`), authorId: users.claire.id, authorRole: 'ADMIN' }, t + Math.min(toAssign, toTake / 2));
       }
       assignedTo = agent;
       t += toTake;
@@ -292,20 +304,26 @@ async function main() {
           t += toReResolve;
           resolvedAt = t;
           status = 'RESOLU';
-          ev({ type: 'STATUS', fromStatus: 'EN_COURS', toStatus: 'RESOLU', comment: 'Nouvelle intervention, pièce remplacée.', authorId: agent.id, authorRole: 'AGENT' }, t);
+          ev({ type: 'STATUS', fromStatus: 'EN_COURS', toStatus: 'RESOLU', comment: bi('Nouvelle intervention, pièce remplacée.', 'Second visit, part replaced.'), authorId: agent.id, authorRole: 'AGENT' }, t);
         }
       }
       if (spec.status === 'FERME') {
         t += toClose;
         closedAt = t;
         status = 'FERME';
-        ev({ type: 'STATUS', fromStatus: 'RESOLU', toStatus: 'FERME', comment: 'Résolution confirmée.', authorId: owner.id, authorRole: 'STUDENT' }, t);
+        ev({ type: 'STATUS', fromStatus: 'RESOLU', toStatus: 'FERME', comment: null, authorId: owner.id, authorRole: 'STUDENT' }, t);
       }
     }
 
     const priority = computePriority(urgency, category.autoPriority);
+    // US-12 : la plupart des tickets fermés sont notés par leur auteur.
+    const rating =
+      status === 'FERME' && rand() < 0.75
+        ? { ownerId: owner.id, score: pick([5, 5, 4, 4, 4, 3, 2]), comment: pick(RATING_COMMENTS), createdAt: new Date(closedAt! + 0.1 * HOUR) }
+        : null;
     return {
       createdAt,
+      rating,
       data: {
         title: buildTitle(category.label, building.name, room),
         categoryId: category.id,
@@ -332,7 +350,9 @@ async function main() {
   // Insertion chronologique : les numéros SC-xxxx suivent l'ordre de création.
   drafts.sort((a, b) => a.createdAt - b.createdAt);
   for (const d of drafts) {
-    await prisma.incident.create({ data: { ...d.data, events: { create: d.events } } });
+    await prisma.incident.create({
+      data: { ...d.data, events: { create: d.events }, ...(d.rating ? { rating: { create: d.rating } } : {}) },
+    });
   }
 
   const counts = await prisma.incident.groupBy({ by: ['status'], _count: true });

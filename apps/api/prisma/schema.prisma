@@ -49,6 +49,30 @@ enum EventType {
   STATUS
   ASSIGN
   UPDATE
+  MERGE
+}
+
+enum NotificationType {
+  STATUS_CHANGED
+  ASSIGNED
+  REOPENED
+  REJECTED
+  MERGED
+  OVERDUE
+  CRITICAL_CREATED
+}
+
+enum AuditAction {
+  ROLE_CHANGE
+  REJECT
+  MERGE
+  DATA_DELETION
+  EXPORT
+}
+
+enum Feedback {
+  UP
+  DOWN
 }
 
 model User {
@@ -57,20 +81,33 @@ model User {
   name         String
   role         Role
   passwordHash String
-  createdAt    DateTime @default(now())
+  /// Langue de l'interface et des emails (US-38).
+  locale       String    @default("fr")
+  /// Renseigné après suppression des données sur demande (US-34).
+  anonymizedAt DateTime?
+  createdAt    DateTime  @default(now())
 
-  ownedIncidents    Incident[]      @relation("IncidentOwner")
-  assignedIncidents Incident[]      @relation("IncidentAssignee")
+  ownedIncidents    Incident[]             @relation("IncidentOwner")
+  assignedIncidents Incident[]             @relation("IncidentAssignee")
   events            IncidentEvent[]
+  notes             InternalNote[]
+  ratings           Rating[]
+  notifications     Notification[]
+  interactions      AssistantInteraction[]
+  auditEntries      AuditLog[]
 }
 
 model Category {
   id           String    @id @default(uuid())
-  slug         String    @unique
-  label        String
-  description  String
+  slug          String    @unique
+  label         String
+  labelEn       String    @default("")
+  description   String
+  descriptionEn String    @default("")
   /// Priorité imposée quelle que soit l'urgence ressentie (ex. Sécurité → CRITIQUE).
-  autoPriority Priority?
+  autoPriority  Priority?
+  /// Délai cible de prise en charge en heures (US-18), 24 h par défaut.
+  targetHours   Int       @default(24)
   order        Int       @default(0)
   active       Boolean   @default(true)
   incidents    Incident[]
@@ -105,6 +142,10 @@ model Incident {
   assignedTo      User?          @relation("IncidentAssignee", fields: [assignedToId], references: [id])
   reopenCount     Int            @default(0)
   rejectionReason String?
+  /// Ticket principal quand celui-ci a été fusionné comme doublon (US-17).
+  mergedIntoId    String?
+  mergedInto      Incident?      @relation("IncidentMerge", fields: [mergedIntoId], references: [id])
+  duplicates      Incident[]     @relation("IncidentMerge")
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   takenAt         DateTime?
@@ -112,6 +153,10 @@ model Incident {
   closedAt        DateTime?
   lateNotifiedAt  DateTime?
   events          IncidentEvent[]
+  notes           InternalNote[]
+  rating          Rating?
+  notifications   Notification[]
+  interaction     AssistantInteraction?
 
   @@index([ownerId])
   @@index([assignedToId, status])
@@ -134,11 +179,96 @@ model IncidentEvent {
   @@index([incidentId, createdAt])
 }
 
+/// Note visible des seuls agents et admins (US-15).
+model InternalNote {
+  id         String   @id @default(uuid())
+  incidentId String
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id])
+  body       String
+  createdAt  DateTime @default(now())
+
+  @@index([incidentId, createdAt])
+}
+
+/// Note de satisfaction (US-12), une par ticket.
+model Rating {
+  id         String   @id @default(uuid())
+  incidentId String   @unique
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  ownerId    String
+  owner      User     @relation(fields: [ownerId], references: [id])
+  score      Int
+  comment    String?
+  createdAt  DateTime @default(now())
+}
+
+/// Notification in-app (US-10). Le texte est rendu dans la langue du lecteur à partir de `type` + `params`.
+model Notification {
+  id         String           @id @default(uuid())
+  userId     String
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  incidentId String?
+  incident   Incident?        @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  type       NotificationType
+  params     Json
+  read       Boolean          @default(false)
+  createdAt  DateTime         @default(now())
+
+  @@index([userId, read, createdAt])
+}
+
 model FaqEntry {
-  id       String   @id @default(uuid())
-  question String
-  answer   String
-  keywords String[]
-  topic    String
-  order    Int      @default(0)
+  id         String   @id @default(uuid())
+  question   String
+  answer     String
+  questionEn String?
+  answerEn   String?
+  keywords   String[]
+  topic      String
+  order      Int      @default(0)
+  updatedAt  DateTime @default(now()) @updatedAt
+}
+
+/// Document de la base documentaire de l'assistant (US-24).
+model KbDocument {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
+  language  String   @default("fr")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Trace d'un échange avec l'assistant (US-21, US-23, US-32). Le texte de la question n'est pas stocké.
+model AssistantInteraction {
+  id                String    @id @default(uuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  language          String
+  kind              String
+  sources           Json
+  feedback          Feedback?
+  createdIncidentId String?   @unique
+  createdIncident   Incident? @relation(fields: [createdIncidentId], references: [id], onDelete: SetNull)
+  createdAt         DateTime  @default(now())
+
+  @@index([createdAt])
+}
+
+/// Journal des actions sensibles (US-37), en ajout seul.
+model AuditLog {
+  id         String      @id @default(uuid())
+  actorId    String?
+  actor      User?       @relation(fields: [actorId], references: [id])
+  actorRole  ActorRole
+  action     AuditAction
+  targetType String
+  targetId   String
+  details    Json
+  createdAt  DateTime    @default(now())
+
+  @@index([createdAt])
+  @@index([action, createdAt])
 }

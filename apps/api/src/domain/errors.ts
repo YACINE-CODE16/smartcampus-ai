@@ -1,5 +1,8 @@
+import { bi } from '@smartcampus/shared';
+
 /**
  * Erreurs métier, indépendantes du transport. La couche HTTP les traduit en codes.
+ * Les messages peuvent être bilingues (`bi(fr, en)`) : la langue est choisie à la réponse.
  */
 export class DomainError extends Error {
   constructor(
@@ -13,26 +16,26 @@ export class DomainError extends Error {
 }
 
 export class ValidationError extends DomainError {
-  constructor(message: string, fields?: Record<string, string>) {
+  constructor(message: string = bi('Certains champs sont invalides.', 'Some fields are invalid.'), fields?: Record<string, string>) {
     super('VALIDATION', message, fields);
   }
 }
 
 export class UnauthorizedError extends DomainError {
-  constructor(message = 'Authentification requise.') {
+  constructor(message: string = bi('Authentification requise.', 'Authentication required.')) {
     super('UNAUTHORIZED', message);
   }
 }
 
 export class ForbiddenError extends DomainError {
-  constructor(message = 'Accès refusé.') {
+  constructor(message: string = bi('Accès refusé.', 'Access denied.')) {
     super('FORBIDDEN', message);
   }
 }
 
 /** Utilisé aussi pour un ticket existant mais non autorisé : on ne révèle pas son existence. */
 export class NotFoundError extends DomainError {
-  constructor(message = 'Ressource introuvable.') {
+  constructor(message: string = bi('Ressource introuvable.', 'Not found.')) {
     super('NOT_FOUND', message);
   }
 }

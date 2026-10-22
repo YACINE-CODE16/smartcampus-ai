@@ -1,11 +1,16 @@
 import express, { type ErrorRequestHandler } from 'express';
 import cookieParser from 'cookie-parser';
-import type { ApiError } from '@smartcampus/shared';
+import { localize, type ApiError } from '@smartcampus/shared';
 import type { Container } from '../container';
 import { DomainError } from '../domain/errors';
+import { requestLang } from './lang';
+import { requireAuth } from './middlewares/auth';
+import { adminRouter } from './routes/admin';
 import { authRouter } from './routes/auth';
+import { eventsRouter } from './routes/events';
 import { healthRouter } from './routes/health';
 import { incidentsRouter } from './routes/incidents';
+import { notificationsRouter } from './routes/notifications';
 
 const STATUS_BY_CODE: Record<DomainError['code'], number> = {
   VALIDATION: 400,
@@ -37,21 +42,29 @@ export function createApp(container: Container) {
 
   app.use('/api/health', healthRouter(container));
   app.use('/api/auth', authRouter(container));
-  app.use('/api', incidentsRouter(container));
 
-  app.use('/api', (_req, res) => {
-    const body: ApiError = { error: 'NOT_FOUND', message: 'Route inconnue.' };
+  // Toutes les routes suivantes exigent une session valide.
+  app.use('/api', requireAuth(container));
+  app.use('/api', incidentsRouter(container));
+  app.use('/api/notifications', notificationsRouter(container));
+  app.use('/api/events', eventsRouter(container));
+  app.use('/api', adminRouter(container));
+
+  app.use('/api', (req, res) => {
+    const body: ApiError = { error: 'NOT_FOUND', message: requestLang(req) === 'en' ? 'Unknown route.' : 'Route inconnue.' };
     res.status(404).json(body);
   });
 
-  const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
+  const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
+    const lang = requestLang(req);
     if (err instanceof DomainError) {
-      const body: ApiError = { error: err.code, message: err.message, fields: err.fields };
+      const fields = err.fields ? Object.fromEntries(Object.entries(err.fields).map(([k, v]) => [k, localize(v, lang)])) : undefined;
+      const body: ApiError = { error: err.code, message: localize(err.message, lang), fields };
       res.status(STATUS_BY_CODE[err.code]).json(body);
       return;
     }
     console.error(err);
-    const body: ApiError = { error: 'INTERNAL', message: 'Erreur interne du serveur.' };
+    const body: ApiError = { error: 'INTERNAL', message: lang === 'en' ? 'Internal server error.' : 'Erreur interne du serveur.' };
     res.status(500).json(body);
   };
   app.use(errorHandler);

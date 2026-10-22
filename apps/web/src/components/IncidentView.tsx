@@ -1,58 +1,70 @@
 import type { ReactNode } from 'react';
-import {
-  ROLE_LABELS,
-  STATUS_LABELS,
-  URGENCY_LABELS,
-  type IncidentDetail,
-  type IncidentEventDto,
-} from '@smartcampus/shared';
+import { Link } from 'react-router';
+import { ROLE_LABELS, STATUS_LABELS, URGENCY_LABELS, type IncidentDetail, type IncidentEventDto } from '@smartcampus/shared';
 import { formatDateTime } from '../lib/format';
+import { useI18n } from '../lib/i18n';
 import { LateBadge, PriorityBadge, StatusBadge } from './Badges';
-
-function eventTitle(e: IncidentEventDto): string {
-  switch (e.type) {
-    case 'CREATED':
-      return 'Ticket créé';
-    case 'ASSIGN':
-      return e.comment ?? 'Affectation';
-    case 'UPDATE':
-      return 'Ticket modifié';
-    case 'STATUS':
-      return `${e.fromStatus ? STATUS_LABELS[e.fromStatus] : '—'} → ${e.toStatus ? STATUS_LABELS[e.toStatus] : '—'}`;
-  }
-}
 
 /** US-09 : historique de traitement, du plus ancien au plus récent. */
 export function Timeline({ events }: { events: IncidentEventDto[] }) {
+  const { t, label, text, lang } = useI18n();
+
+  function title(e: IncidentEventDto): string {
+    switch (e.type) {
+      case 'CREATED':
+        return t('Ticket créé', 'Ticket created');
+      case 'ASSIGN':
+        return e.comment ? text(e.comment) : t('Affectation', 'Assignment');
+      case 'UPDATE':
+        return t('Ticket requalifié', 'Ticket requalified');
+      case 'MERGE':
+        return t('Fusion de doublon', 'Duplicate merge');
+      case 'STATUS':
+        return `${e.fromStatus ? label(STATUS_LABELS[e.fromStatus]) : '—'} → ${e.toStatus ? label(STATUS_LABELS[e.toStatus]) : '—'}`;
+    }
+  }
+
   return (
     <ol className="timeline">
       {events.map((e) => (
         <li key={e.id} className={`timeline__item timeline__item--${(e.toStatus ?? 'nouveau').toLowerCase()}`}>
           <div className="timeline__head">
-            <strong>{eventTitle(e)}</strong>
-            <time dateTime={e.createdAt}>{formatDateTime(e.createdAt)}</time>
+            <strong>{title(e)}</strong>
+            <time dateTime={e.createdAt}>{formatDateTime(e.createdAt, lang)}</time>
           </div>
           <p className="timeline__author">
-            {e.author?.name ?? 'Système'} · {ROLE_LABELS[e.authorRole]}
+            {e.author?.name ?? label(ROLE_LABELS.SYSTEM)} · {label(ROLE_LABELS[e.authorRole])}
           </p>
-          {e.comment && e.type !== 'ASSIGN' && <p className="timeline__comment">« {e.comment} »</p>}
+          {e.comment && e.type !== 'ASSIGN' && <p className="timeline__comment">« {text(e.comment)} »</p>}
         </li>
       ))}
     </ol>
   );
 }
 
-/** Détail d'un ticket, commun aux trois espaces ; `actions` reçoit les boutons propres au rôle. */
-export function IncidentView({ incident: t, actions, showOwner = false }: { incident: IncidentDetail; actions?: ReactNode; showOwner?: boolean }) {
+interface Props {
+  incident: IncidentDetail;
+  /** Actions propres au rôle, affichées sous l'en-tête. */
+  actions?: ReactNode;
+  /** Panneau supplémentaire sous l'historique (ex. notes internes). */
+  aside?: ReactNode;
+  showOwner?: boolean;
+  /** Préfixe des liens vers d'autres tickets (`/agent/tickets`…). */
+  linkBase?: string;
+}
+
+/** Détail d'un ticket, commun aux trois espaces. */
+export function IncidentView({ incident: x, actions, aside, showOwner = false, linkBase }: Props) {
+  const { t, label, text, category, lang } = useI18n();
   return (
     <article className="incident">
       <header className="incident__head">
-        <p className="incident__number">{t.ticketNumber}</p>
-        <h1>{t.title}</h1>
+        <p className="incident__number">{x.ticketNumber}</p>
+        <h1>{x.title}</h1>
         <div className="incident__badges">
-          <StatusBadge status={t.status} />
-          <PriorityBadge priority={t.priority} />
-          {t.isLate && <LateBadge />}
+          <StatusBadge status={x.status} />
+          <PriorityBadge priority={x.priority} />
+          {x.isLate && <LateBadge />}
         </div>
       </header>
 
@@ -60,53 +72,62 @@ export function IncidentView({ incident: t, actions, showOwner = false }: { inci
 
       <div className="incident__grid">
         <section className="card">
-          <h2>Détails</h2>
+          <h2>{t('Détails', 'Details')}</h2>
           <dl className="facts">
-            <dt>Type</dt>
-            <dd>{t.category.label}</dd>
-            <dt>Lieu</dt>
+            <dt>{t('Type', 'Type')}</dt>
+            <dd>{category(x.category)}</dd>
+            <dt>{t('Lieu', 'Location')}</dt>
             <dd>
-              {t.building.name} — {t.room}
+              {x.building.name} — {x.room}
             </dd>
-            <dt>Urgence ressentie</dt>
-            <dd>{URGENCY_LABELS[t.urgency]}</dd>
+            <dt>{t('Urgence ressentie', 'Perceived urgency')}</dt>
+            <dd>{label(URGENCY_LABELS[x.urgency])}</dd>
             {showOwner && (
               <>
-                <dt>Signalé par</dt>
-                <dd>{t.owner.name}</dd>
+                <dt>{t('Signalé par', 'Reported by')}</dt>
+                <dd>{x.owner.name}</dd>
               </>
             )}
-            <dt>Créé le</dt>
-            <dd>{formatDateTime(t.createdAt)}</dd>
-            <dt>Agent affecté</dt>
-            <dd>{t.assignedTo?.name ?? 'Pas encore affecté'}</dd>
-            {t.reopenCount > 0 && (
+            <dt>{t('Créé le', 'Created on')}</dt>
+            <dd>{formatDateTime(x.createdAt, lang)}</dd>
+            <dt>{t('Agent affecté', 'Assigned agent')}</dt>
+            <dd>{x.assignedTo?.name ?? t('Pas encore affecté', 'Not assigned yet')}</dd>
+            {x.reopenCount > 0 && (
               <>
-                <dt>Réouvertures</dt>
-                <dd>{t.reopenCount}</dd>
+                <dt>{t('Réouvertures', 'Reopened')}</dt>
+                <dd>{x.reopenCount}</dd>
               </>
             )}
           </dl>
-          <h3 className="incident__subtitle">Description</h3>
-          <p className="incident__description">{t.description}</p>
-          {t.rejectionReason && (
+          <h3 className="incident__subtitle">{t('Description', 'Description')}</h3>
+          <p className="incident__description">{x.description}</p>
+          {x.rejectionReason && (
             <p className="alert alert--error">
-              <strong>Motif du rejet :</strong> {t.rejectionReason}
+              <strong>{t('Motif du rejet :', 'Rejection reason:')}</strong> {text(x.rejectionReason)}
+              {x.mergedInto && linkBase && (
+                <>
+                  {' '}
+                  <Link to={`${linkBase}/${x.mergedInto.id}`}>{t('Voir le ticket principal', 'See main ticket')}</Link>
+                </>
+              )}
             </p>
           )}
-          {t.hasPhoto && (
+          {x.hasPhoto && (
             <figure className="incident__photo">
-              <a href={`/api/incidents/${t.id}/photo`} target="_blank" rel="noreferrer">
-                <img src={`/api/incidents/${t.id}/photo`} alt={`Photo jointe au ticket ${t.ticketNumber}`} loading="lazy" />
+              <a href={`/api/incidents/${x.id}/photo`} target="_blank" rel="noreferrer">
+                <img src={`/api/incidents/${x.id}/photo`} alt={t(`Photo jointe au ticket ${x.ticketNumber}`, `Photo attached to ticket ${x.ticketNumber}`)} loading="lazy" />
               </a>
             </figure>
           )}
         </section>
 
-        <section className="card">
-          <h2>Historique</h2>
-          <Timeline events={t.events} />
-        </section>
+        <div className="incident__side">
+          <section className="card">
+            <h2>{t('Historique', 'History')}</h2>
+            <Timeline events={x.events} />
+          </section>
+          {aside}
+        </div>
       </div>
     </article>
   );

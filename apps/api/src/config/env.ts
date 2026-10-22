@@ -22,9 +22,18 @@ const schema = z.object({
   STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
   UPLOAD_DIR: z.string().default('./storage/uploads'),
   S3_BUCKET: z.string().optional(),
+  MAIL_DRIVER: z.enum(['console', 'ses']).default('console'),
+  MAIL_FROM: z.string().default('SmartCampus <no-reply@smartcampus.local>'),
+  MAIL_OUTBOX_DIR: z.string().default('./storage/outbox'),
+  /** URL publique du front, utilisée dans les emails. */
+  APP_URL: z.string().default('http://localhost:5173'),
+  KB_DRIVER: z.enum(['local', 'bedrock']).default('local'),
+  BEDROCK_KB_ID: z.string().optional(),
   AI_DRIVER: z.enum(['mock', 'bedrock']).default('mock'),
   AWS_REGION: z.string().default('us-east-1'),
   BEDROCK_MODEL_ID: z.string().default('us.amazon.nova-lite-v1:0'),
+  BEDROCK_GUARDRAIL_ID: z.string().optional(),
+  BEDROCK_GUARDRAIL_VERSION: z.string().default('DRAFT'),
   /** Dossier du front buildé à servir (optionnel, sinon le front est servi par Vite ou nginx). */
   WEB_DIST_DIR: z.string().optional(),
 });
@@ -39,6 +48,7 @@ const e = parsed.data;
 const problems: string[] = [];
 if (e.NODE_ENV === 'production' && e.JWT_SECRET === DEV_JWT_SECRET) problems.push('JWT_SECRET doit être défini en production.');
 if (e.STORAGE_DRIVER === 's3' && !e.S3_BUCKET) problems.push('S3_BUCKET est requis quand STORAGE_DRIVER=s3.');
+if (e.KB_DRIVER === 'bedrock' && !e.BEDROCK_KB_ID) problems.push('BEDROCK_KB_ID est requis quand KB_DRIVER=bedrock.');
 if (problems.length) {
   console.error(problems.join('\n'));
   process.exit(1);

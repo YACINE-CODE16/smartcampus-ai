@@ -1,6 +1,5 @@
 import type { Role } from '../config/roles';
-import { SETTINGS } from '../config/settings';
-import { TRANSITIONS, type IncidentStatus, type Transition, type TransitionActor } from '../config/statuses';
+import { CLOSED_STATUSES, TRANSITIONS, type IncidentStatus, type Transition, type TransitionActor } from '../config/statuses';
 import type { Priority, Urgency } from '../config/urgencies';
 
 /** Le strict nécessaire d'un ticket pour appliquer les règles. */
@@ -8,6 +7,11 @@ export interface IncidentRef {
   status: IncidentStatus;
   ownerId: string;
   assignedToId: string | null;
+}
+
+/** Convertit un ticket tel que renvoyé par l'API (DTO) vers la forme attendue par les règles. */
+export function refOf(t: { status: IncidentStatus; owner: { id: string }; assignedTo: { id: string } | null }): IncidentRef {
+  return { status: t.status, ownerId: t.owner.id, assignedToId: t.assignedTo?.id ?? null };
 }
 
 export interface Actor {
@@ -29,10 +33,19 @@ export function computePriority(urgency: Urgency, categoryAutoPriority: Priority
   return categoryAutoPriority ?? urgency;
 }
 
-export function isLate(incident: { status: IncidentStatus; createdAt: Date | string }, now: Date = new Date()): boolean {
+/** US-18 : un ticket est en retard s'il est encore NOUVEAU au-delà du délai cible de sa catégorie. */
+export function isLate(
+  incident: { status: IncidentStatus; createdAt: Date | string },
+  targetHours: number,
+  now: Date = new Date(),
+): boolean {
   if (incident.status !== 'NOUVEAU') return false;
   const ageMs = now.getTime() - new Date(incident.createdAt).getTime();
-  return ageMs > SETTINGS.lateAfterHours * 3_600_000;
+  return ageMs > targetHours * 3_600_000;
+}
+
+export function isClosed(status: IncidentStatus): boolean {
+  return CLOSED_STATUSES.includes(status);
 }
 
 /** R1 : qui peut voir un ticket. */
@@ -69,4 +82,31 @@ export function findTransition(actor: Actor, incident: IncidentRef, to: Incident
 /** « Prendre en charge » (D4) : agent ou admin, ticket NOUVEAU non affecté. */
 export function canTake(actor: Actor, incident: IncidentRef): boolean {
   return (actor.role === 'AGENT' || actor.role === 'ADMIN') && incident.status === 'NOUVEAU' && incident.assignedToId === null;
+}
+
+/** US-16 : requalification (catégorie, urgence) par l'agent affecté ou l'admin, ticket non clos. */
+export function canRequalify(actor: Actor, incident: IncidentRef): boolean {
+  if (isClosed(incident.status)) return false;
+  return actor.role === 'ADMIN' || (actor.role === 'AGENT' && incident.assignedToId === actor.id);
+}
+
+/** US-17 : fusion d'un doublon dans un ticket principal (deux tickets distincts, non clos). */
+export function canMerge(
+  actor: Actor,
+  duplicate: IncidentRef & { id: string },
+  target: IncidentRef & { id: string },
+): boolean {
+  if (duplicate.id === target.id) return false;
+  if (isClosed(duplicate.status) || isClosed(target.status)) return false;
+  return canRequalify(actor, duplicate) && canView(actor, target);
+}
+
+/** US-12 : le propriétaire note une fois un ticket résolu ou fermé. */
+export function canRate(actor: Actor, incident: IncidentRef, alreadyRated: boolean): boolean {
+  return (
+    actor.role === 'STUDENT' &&
+    incident.ownerId === actor.id &&
+    (incident.status === 'RESOLU' || incident.status === 'FERME') &&
+    !alreadyRated
+  );
 }

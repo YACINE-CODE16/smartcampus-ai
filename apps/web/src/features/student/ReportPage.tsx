@@ -10,6 +10,7 @@ import {
   type Urgency,
 } from '@smartcampus/shared';
 import { ApiRequestError, api } from '../../lib/api';
+import { useI18n } from '../../lib/i18n';
 import { useApi } from '../../lib/useApi';
 
 /** Valeurs de pré-remplissage (US-21 : envoyées par l'assistant via le state de navigation). */
@@ -18,26 +19,18 @@ export interface ReportPrefill {
   buildingCode?: string;
   room?: string;
   description?: string;
+  /** Échange de l'assistant à l'origine du ticket (statistiques US-32). */
+  interactionId?: string;
 }
 
-type Errors = Partial<Record<'categoryId' | 'buildingId' | 'room' | 'description' | 'photo' | '_', string>>;
+type Field = 'categoryId' | 'buildingId' | 'room' | 'description' | 'photo' | '_';
+type Errors = Partial<Record<Field, string>>;
 
 const MAX_BYTES = SETTINGS.maxPhotoMb * 1024 * 1024;
-const PHOTO_ERROR = `Photo JPG ou PNG de ${SETTINGS.maxPhotoMb} Mo maximum`;
-
-function validate(v: { categoryId: string; buildingId: string; room: string; description: string }): Errors {
-  const e: Errors = {};
-  if (!v.categoryId) e.categoryId = 'Choisissez un type';
-  if (!v.buildingId) e.buildingId = 'Choisissez un bâtiment';
-  if (!v.room.trim()) e.room = 'La salle est obligatoire';
-  const d = v.description.trim();
-  if (!d) e.description = 'La description est obligatoire';
-  else if (d.length < SETTINGS.description.min) e.description = `Au moins ${SETTINGS.description.min} caractères`;
-  return e;
-}
 
 /** US-03 / US-04 / US-05 : signaler un incident. */
 export function ReportPage() {
+  const { t, label, category } = useI18n();
   const prefill = (useLocation().state as { prefill?: ReportPrefill } | null)?.prefill;
   const { data: refs, error: refsError } = useApi<Referentials>('/referentials');
 
@@ -57,13 +50,25 @@ export function ReportPage() {
   // Pré-remplissage par slug/code, résolu dès que les référentiels sont chargés.
   const categoryId = chosenCategoryId ?? refs?.categories.find((c) => c.slug === prefill?.categorySlug)?.id ?? '';
   const buildingId = chosenBuildingId ?? refs?.buildings.find((b) => b.code === prefill?.buildingCode)?.id ?? '';
+  const selectedCategory = refs?.categories.find((c) => c.id === categoryId);
+  const photoError = t(`Photo JPG ou PNG de ${SETTINGS.maxPhotoMb} Mo maximum`, `JPG or PNG photo, ${SETTINGS.maxPhotoMb} MB max`);
 
   useEffect(() => () => void (preview && URL.revokeObjectURL(preview)), [preview]);
 
-  const selectedCategory = refs?.categories.find((c) => c.id === categoryId);
+  function validate(): Errors {
+    const e: Errors = {};
+    if (!categoryId) e.categoryId = t('Choisissez un type', 'Choose a type');
+    if (!buildingId) e.buildingId = t('Choisissez un bâtiment', 'Choose a building');
+    if (!room.trim()) e.room = t('La salle est obligatoire', 'Room is required');
+    const d = description.trim();
+    if (!d) e.description = t('La description est obligatoire', 'Description is required');
+    else if (d.length < SETTINGS.description.min)
+      e.description = t(`Au moins ${SETTINGS.description.min} caractères`, `At least ${SETTINGS.description.min} characters`);
+    return e;
+  }
 
   /** Efface l'erreur d'un champ dès que l'utilisateur le corrige. */
-  function edit<T>(field: keyof Errors, setter: (v: T) => void) {
+  function edit<T>(field: Field, setter: (v: T) => void) {
     return (value: T) => {
       setter(value);
       setErrors((e) => (e[field] ? { ...e, [field]: undefined } : e));
@@ -79,7 +84,7 @@ export function ReportPage() {
     setErrors((e) => ({ ...e, photo: undefined }));
     if (!file) return;
     if (!SETTINGS.acceptedPhotoTypes.includes(file.type) || file.size > MAX_BYTES) {
-      setErrors((e) => ({ ...e, photo: PHOTO_ERROR }));
+      setErrors((e) => ({ ...e, photo: photoError }));
       ev.target.value = '';
       return;
     }
@@ -95,7 +100,7 @@ export function ReportPage() {
 
   async function onSubmit(ev: FormEvent) {
     ev.preventDefault();
-    const clientErrors = validate({ categoryId, buildingId, room, description });
+    const clientErrors = validate();
     setErrors(clientErrors);
     if (Object.keys(clientErrors).length) {
       document.getElementById(`f-${Object.keys(clientErrors)[0]}`)?.focus();
@@ -107,6 +112,7 @@ export function ReportPage() {
     form.set('room', room.trim());
     form.set('description', description.trim());
     form.set('urgency', urgency);
+    if (prefill?.interactionId) form.set('assistantInteractionId', prefill.interactionId);
     if (photo) form.set('photo', photo);
 
     setBusy(true);
@@ -115,7 +121,7 @@ export function ReportPage() {
       window.scrollTo({ top: 0 });
     } catch (err) {
       if (err instanceof ApiRequestError) setErrors({ ...err.fields, _: err.message });
-      else setErrors({ _: 'Envoi impossible, réessayez.' });
+      else setErrors({ _: t('Envoi impossible, réessayez.', 'Could not send, please try again.') });
     } finally {
       setBusy(false);
     }
@@ -124,40 +130,54 @@ export function ReportPage() {
   if (created) {
     return (
       <section className="card confirm" aria-live="polite">
-        <p className="confirm__icon" aria-hidden="true">✓</p>
-        <h1>Signalement envoyé</h1>
+        <p className="confirm__icon" aria-hidden="true">
+          ✓
+        </p>
+        <h1>{t('Signalement envoyé', 'Report sent')}</h1>
         <p>
-          Numéro de ticket <strong className="confirm__number">{created.ticketNumber}</strong>
+          {t('Numéro de ticket', 'Ticket number')} <strong className="confirm__number">{created.ticketNumber}</strong>
         </p>
         <p>
-          Statut : <span className="badge badge--nouveau">{STATUS_LABELS[created.status]}</span>
+          {t('Statut :', 'Status:')} <span className="badge badge--nouveau">{label(STATUS_LABELS[created.status])}</span>
         </p>
         {created.priority === 'CRITIQUE' && (
-          <p className="alert alert--warning">Incident de sécurité : l'administration a été alertée immédiatement.</p>
+          <p className="alert alert--warning">
+            {t("Incident de sécurité : l'administration a été alertée immédiatement.", 'Safety incident: the administration has been alerted immediately.')}
+          </p>
         )}
-        <p className="muted">Vous pouvez suivre son avancement dans « Mes signalements ».</p>
+        <p className="muted">{t('Vous pouvez suivre son avancement dans « Mes signalements ».', 'You can follow its progress in “My reports”.')}</p>
         <div className="actions">
           <Link to={`/etudiant/tickets/${created.id}`} className="btn btn--primary">
-            Voir le ticket
+            {t('Voir le ticket', 'View ticket')}
           </Link>
           <Link to="/etudiant" className="btn btn--secondary">
-            Mes signalements
+            {t('Mes signalements', 'My reports')}
           </Link>
         </div>
       </section>
     );
   }
 
+  const req = (
+    <span className="req" aria-hidden="true">
+      *
+    </span>
+  );
+
   return (
     <section className="report">
-      <h1>Signaler un incident</h1>
-      {prefill && <p className="alert alert--info">Formulaire pré-rempli par l'assistant : vérifiez et complétez avant d'envoyer.</p>}
+      <h1>{t('Signaler un incident', 'Report an incident')}</h1>
+      {prefill && (
+        <p className="alert alert--info">
+          {t("Formulaire pré-rempli par l'assistant : vérifiez et complétez avant d'envoyer.", 'Form pre-filled by the assistant: check and complete it before sending.')}
+        </p>
+      )}
       {refsError && <p className="alert alert--error">{refsError.message}</p>}
 
       <form className="form card" onSubmit={onSubmit} noValidate>
         <fieldset className="field">
           <legend>
-            Type d'incident <span className="req" aria-hidden="true">*</span>
+            {t("Type d'incident", 'Incident type')} {req}
           </legend>
           <div className="chips" role="radiogroup" aria-describedby={errors.categoryId ? 'e-categoryId' : undefined}>
             {refs?.categories.map((c, i) => (
@@ -170,21 +190,27 @@ export function ReportPage() {
                   checked={categoryId === c.id}
                   onChange={() => changeCategory(c.id)}
                 />
-                <span className="chip__label">{c.label}</span>
-                <span className="chip__help">{c.description}</span>
+                <span className="chip__label">{category(c)}</span>
+                <span className="chip__help">{t(c.description, c.descriptionEn || c.description)}</span>
               </label>
             ))}
           </div>
-          {errors.categoryId && <p id="e-categoryId" className="field__error">{errors.categoryId}</p>}
+          {errors.categoryId && (
+            <p id="e-categoryId" className="field__error">
+              {errors.categoryId}
+            </p>
+          )}
           {selectedCategory?.autoPriority === 'CRITIQUE' && (
-            <p className="alert alert--warning">Priorité critique : l'administration sera alertée dès l'envoi.</p>
+            <p className="alert alert--warning">
+              {t("Priorité critique : l'administration sera alertée dès l'envoi.", 'Critical priority: the administration will be alerted as soon as you send.')}
+            </p>
           )}
         </fieldset>
 
         <div className="row-2">
           <div className="field">
             <label htmlFor="f-buildingId">
-              Bâtiment <span className="req" aria-hidden="true">*</span>
+              {t('Bâtiment', 'Building')} {req}
             </label>
             <select
               id="f-buildingId"
@@ -193,70 +219,82 @@ export function ReportPage() {
               aria-invalid={!!errors.buildingId}
               aria-describedby={errors.buildingId ? 'e-buildingId' : undefined}
             >
-              <option value="">Choisir…</option>
+              <option value="">{t('Choisir…', 'Choose…')}</option>
               {refs?.buildings.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}
                 </option>
               ))}
             </select>
-            {errors.buildingId && <p id="e-buildingId" className="field__error">{errors.buildingId}</p>}
+            {errors.buildingId && (
+              <p id="e-buildingId" className="field__error">
+                {errors.buildingId}
+              </p>
+            )}
           </div>
           <div className="field">
             <label htmlFor="f-room">
-              Salle ou lieu précis <span className="req" aria-hidden="true">*</span>
+              {t('Salle ou lieu précis', 'Room or exact spot')} {req}
             </label>
             <input
               id="f-room"
               value={room}
               maxLength={SETTINGS.room.max}
-              placeholder="ex. A102, hall, 2e étage"
+              placeholder={t('ex. A102, hall, 2e étage', 'e.g. A102, hall, 2nd floor')}
               onChange={(e) => changeRoom(e.target.value)}
               aria-invalid={!!errors.room}
               aria-describedby={errors.room ? 'e-room' : undefined}
             />
-            {errors.room && <p id="e-room" className="field__error">{errors.room}</p>}
+            {errors.room && (
+              <p id="e-room" className="field__error">
+                {errors.room}
+              </p>
+            )}
           </div>
         </div>
 
         <div className="field">
           <label htmlFor="f-description">
-            Description <span className="req" aria-hidden="true">*</span>
+            {t('Description', 'Description')} {req}
           </label>
           <textarea
             id="f-description"
             value={description}
             maxLength={SETTINGS.description.max}
-            placeholder="Que se passe-t-il ? Depuis quand ?"
+            placeholder={t('Que se passe-t-il ? Depuis quand ?', 'What is happening? Since when?')}
             onChange={(e) => changeDescription(e.target.value)}
             aria-invalid={!!errors.description}
             aria-describedby={`h-description${errors.description ? ' e-description' : ''}`}
           />
           <p id="h-description" className="field__help">
-            {description.trim().length}/{SETTINGS.description.max} caractères
+            {description.trim().length}/{SETTINGS.description.max} {t('caractères', 'characters')}
           </p>
-          {errors.description && <p id="e-description" className="field__error">{errors.description}</p>}
+          {errors.description && (
+            <p id="e-description" className="field__error">
+              {errors.description}
+            </p>
+          )}
         </div>
 
         <fieldset className="field">
-          <legend>Urgence ressentie</legend>
+          <legend>{t('Urgence ressentie', 'Perceived urgency')}</legend>
           <div className="segmented" role="radiogroup">
             {URGENCIES.map((u) => (
               <label key={u} className={`segmented__item ${urgency === u ? 'segmented__item--on' : ''}`}>
                 <input type="radio" name="urgency" value={u} checked={urgency === u} onChange={() => setUrgency(u)} />
-                {URGENCY_LABELS[u]}
+                {label(URGENCY_LABELS[u])}
               </label>
             ))}
           </div>
         </fieldset>
 
         <div className="field">
-          <label htmlFor="f-photo">Photo (facultative)</label>
+          <label htmlFor="f-photo">{t('Photo (facultative)', 'Photo (optional)')}</label>
           {preview ? (
             <div className="photo-preview">
-              <img src={preview} alt="Aperçu de la photo jointe" />
+              <img src={preview} alt={t('Aperçu de la photo jointe', 'Preview of the attached photo')} />
               <button type="button" className="btn btn--secondary btn--sm" onClick={removePhoto}>
-                Retirer la photo
+                {t('Retirer la photo', 'Remove photo')}
               </button>
             </div>
           ) : (
@@ -270,13 +308,21 @@ export function ReportPage() {
             />
           )}
           <p id="h-photo" className="field__help">
-            JPG ou PNG, {SETTINGS.maxPhotoMb} Mo maximum.
+            {t(`JPG ou PNG, ${SETTINGS.maxPhotoMb} Mo maximum.`, `JPG or PNG, ${SETTINGS.maxPhotoMb} MB max.`)}
           </p>
-          {errors.photo && <p id="e-photo" className="field__error">{errors.photo}</p>}
+          {errors.photo && (
+            <p id="e-photo" className="field__error">
+              {errors.photo}
+            </p>
+          )}
         </div>
 
         <p className="notice" role="note">
-          🔒 Ne photographiez pas de personnes et n'indiquez pas de données personnelles dans la description.
+          🔒{' '}
+          {t(
+            "Ne photographiez pas de personnes et n'indiquez pas de données personnelles dans la description.",
+            'Do not photograph people and do not include personal data in the description.',
+          )}
         </p>
 
         {errors._ && (
@@ -285,7 +331,7 @@ export function ReportPage() {
           </p>
         )}
         <button type="submit" className="btn btn--primary btn--block" disabled={busy || !refs}>
-          {busy ? 'Envoi…' : 'Envoyer le signalement'}
+          {busy ? t('Envoi…', 'Sending…') : t('Envoyer le signalement', 'Send report')}
         </button>
       </form>
     </section>

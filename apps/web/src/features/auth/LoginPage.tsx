@@ -3,10 +3,12 @@ import { Navigate, useNavigate } from 'react-router';
 import { ROLE_HOME, ROLE_LABELS, type DemoAccount } from '@smartcampus/shared';
 import { ApiRequestError, api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
+import { useI18n } from '../../lib/i18n';
 
 /** US-01 : connexion avec le compte école (SSO simulé par les comptes de démo). */
 export function LoginPage() {
   const { user, login } = useAuth();
+  const { t, label } = useI18n();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -27,7 +29,7 @@ export function LoginPage() {
       const u = await login(e, p);
       navigate(ROLE_HOME[u.role], { replace: true });
     } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : 'Connexion impossible.');
+      setError(err instanceof ApiRequestError ? err.message : t('Connexion impossible.', 'Sign-in failed.'));
     } finally {
       setBusy(false);
     }
@@ -41,24 +43,24 @@ export function LoginPage() {
   return (
     <div className="login">
       <section className="card login__card">
-        <h1 className="login__title">Connexion école</h1>
-        <p className="muted">Utilisez votre compte école ESIEA. Aucune création de compte n'est nécessaire.</p>
+        <h1 className="login__title">{t('Connexion école', 'School sign-in')}</h1>
+        <p className="muted">{t("Utilisez votre compte école ESIEA. Aucune création de compte n'est nécessaire.", 'Use your ESIEA school account. No sign-up needed.')}</p>
 
         <form onSubmit={onSubmit} noValidate className="form">
           <div className="field">
-            <label htmlFor="email">Email école</label>
+            <label htmlFor="email">{t('Email école', 'School email')}</label>
             <input
               id="email"
               type="email"
               autoComplete="username"
-              placeholder="prenom.nom@esiea.fr"
+              placeholder={t('prenom.nom@esiea.fr', 'firstname.lastname@esiea.fr')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
             />
           </div>
           <div className="field">
-            <label htmlFor="password">Mot de passe</label>
+            <label htmlFor="password">{t('Mot de passe', 'Password')}</label>
             <input
               id="password"
               type="password"
@@ -74,20 +76,20 @@ export function LoginPage() {
             </p>
           )}
           <button type="submit" className="btn btn--primary btn--block" disabled={busy}>
-            {busy ? 'Connexion…' : 'Se connecter'}
+            {busy ? t('Connexion…', 'Signing in…') : t('Se connecter', 'Sign in')}
           </button>
         </form>
-        <p className="hint">SSO école simulé pour la démonstration.</p>
+        <p className="hint">{t('SSO école simulé pour la démonstration.', 'School SSO simulated for the demo.')}</p>
       </section>
 
       {demo.accounts.length > 0 && demo.password && (
         <section className="card login__demo" aria-labelledby="demo-title">
-          <h2 id="demo-title">Comptes de démonstration</h2>
+          <h2 id="demo-title">{t('Comptes de démonstration', 'Demo accounts')}</h2>
           <ul className="demo-list">
             {demo.accounts.map((a) => (
               <li key={a.email}>
                 <button type="button" className="demo-account" disabled={busy} onClick={() => void signIn(a.email, demo.password!)}>
-                  <span className={`role-chip role-chip--${a.role.toLowerCase()}`}>{ROLE_LABELS[a.role]}</span>
+                  <span className={`role-chip role-chip--${a.role.toLowerCase()}`}>{label(ROLE_LABELS[a.role])}</span>
                   <span className="demo-account__name">{a.name}</span>
                   <span className="demo-account__email">{a.email}</span>
                 </button>
