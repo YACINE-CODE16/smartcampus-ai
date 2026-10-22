@@ -40,6 +40,10 @@ export function AdminTicketsPage() {
         <h1>
           {t('Tickets', 'Tickets')} {data && <span className="count">{data.length}</span>}
         </h1>
+        {/* US-27 : export des tickets affichés (même filtres), tracé dans le journal d'audit */}
+        <a className="btn btn--secondary" href={`/api/admin/incidents/export.csv${qs}`} download>
+          ⬇ {t('Exporter CSV', 'Export CSV')}
+        </a>
       </div>
 
       <form className="filters card" role="search" onSubmit={(e) => e.preventDefault()}>

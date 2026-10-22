@@ -1,6 +1,7 @@
 import { createBrowserRouter } from 'react-router';
 import { Placeholder } from '../components/Placeholder';
 import { AdminSettingsPage } from '../features/admin/AdminSettingsPage';
+import { DashboardPage } from '../features/admin/DashboardPage';
 import { AdminTicketsPage } from '../features/admin/AdminTicketsPage';
 import { AgentHomePage } from '../features/agent/AgentHomePage';
 import { LoginPage } from '../features/auth/LoginPage';
@@ -41,7 +42,7 @@ export const router = createBrowserRouter([
         path: 'admin',
         element: <RequireRole role="ADMIN" />,
         children: [
-          { index: true, element: <Placeholder title="Tableau de bord" story="US-28" /> },
+          { index: true, element: <DashboardPage /> },
           { path: 'tickets', element: <AdminTicketsPage /> },
           { path: 'tickets/:id', element: <WorkIncidentPage base="/admin/tickets" /> },
           { path: 'reglages', element: <AdminSettingsPage /> },

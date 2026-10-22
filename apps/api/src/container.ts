@@ -12,6 +12,8 @@ import type { Mailer } from './ports/mailer';
 import { LiveHub } from './realtime/hub';
 import { AdminService } from './services/admin';
 import { AuditService } from './services/audit';
+import { DashboardService } from './services/dashboard';
+import { ExportService } from './services/export';
 import { IncidentService } from './services/incidents';
 import { NotificationService } from './services/notifications';
 import { WorkflowService } from './services/workflow';
@@ -33,6 +35,8 @@ export interface Container {
   incidents: IncidentService;
   workflow: WorkflowService;
   admin: AdminService;
+  dashboard: DashboardService;
+  exports: ExportService;
   /** Nom de l'implémentation active par port (affiché par /api/health). */
   adapterNames: Record<string, string>;
   dispose(): Promise<void>;
@@ -66,6 +70,8 @@ export function createContainer(env: Env): Container {
     incidents,
     workflow: new WorkflowService(prisma, incidents, notifications, audit, hub),
     admin: new AdminService(prisma),
+    dashboard: new DashboardService(prisma),
+    exports: new ExportService(prisma, audit),
     adapterNames: { database: 'postgresql', auth: auth.name, storage: storage.name, mail: mailer.name },
     dispose: () => prisma.$disconnect(),
   };

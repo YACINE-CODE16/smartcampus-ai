@@ -179,3 +179,46 @@ export type LiveEvent =
   | { type: 'incident.changed'; id: string }
   | { type: 'notification'; unread: number }
   | { type: 'alert'; kind: 'critical' | 'late'; id: string };
+
+export const DASHBOARD_PERIODS = ['7d', '30d', '90d', 'all'] as const;
+export type DashboardPeriod = (typeof DASHBOARD_PERIODS)[number];
+
+/** US-28 à US-33 : données du tableau de bord pour une période. */
+export interface DashboardResponse {
+  period: DashboardPeriod;
+  granularity: 'day' | 'week' | 'month' | 'year';
+  from: ISODate;
+  to: ISODate;
+  kpis: {
+    total: number;
+    avgResolutionHours: number | null;
+    resolutionRate: number | null;
+    reopenRate: number | null;
+    satisfaction: number | null;
+    ratingsCount: number;
+    /** État actuel (indépendant de la période). */
+    openCritical: number;
+    late: number;
+  };
+  byStatus: Record<IncidentStatus, number>;
+  byCategory: { id: string; label: string; labelEn: string; count: number }[];
+  byBuilding: { id: string; name: string; count: number }[];
+  series: { bucket: string; created: number; resolved: number }[];
+  agents: {
+    id: string;
+    name: string;
+    open: number;
+    critical: number;
+    late: number;
+    resolved: number;
+    avgResolutionHours: number | null;
+  }[];
+  assistant: {
+    questions: number;
+    byKind: Record<string, number>;
+    thumbsUp: number;
+    thumbsDown: number;
+    ticketsCreated: number;
+    aiResolvedRate: number | null;
+  };
+}

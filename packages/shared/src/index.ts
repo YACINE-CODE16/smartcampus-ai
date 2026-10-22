@@ -4,6 +4,7 @@ export * from './config/statuses';
 export * from './config/urgencies';
 export * from './config/settings';
 export * from './domain/incident';
+export * from './domain/kpi';
 export * from './domain/language';
 export * from './domain/notifications';
 export * from './types/api';

@@ -52,7 +52,7 @@ const createSchema = z.object({
   assistantInteractionId: z.uuid().optional(),
 });
 
-const listSchema = z.object({
+export const listSchema = z.object({
   scope: z.enum(['mine', 'unassigned']).optional(),
   status: z.enum(INCIDENT_STATUSES).optional(),
   categoryId: z.uuid().optional(),

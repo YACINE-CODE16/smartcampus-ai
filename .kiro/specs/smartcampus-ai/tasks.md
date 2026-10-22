@@ -18,10 +18,10 @@ Un commit par bloc. Les tests existants doivent passer ; chaque nouvelle règle 
 - [x] a8 Front admin : liste filtrable, affectation, alertes temps réel, délais cibles
 
 ## Bloc b — Dashboard (US-27 à US-33)
-- [ ] b1 `kpi.ts` (délai moyen, taux, satisfaction, buckets jour/semaine/mois/année) + tests
-- [ ] b2 `GET /admin/dashboard` (volumes, KPI, bâtiments, évolution, charge agents, stats assistant)
-- [ ] b3 Filtres avancés + export CSV audité (US-27)
-- [ ] b4 Page dashboard (Recharts)
+- [x] b1 `kpi.ts` (délai moyen, taux, satisfaction, buckets jour/semaine/mois/année) + tests
+- [x] b2 `GET /admin/dashboard` (volumes, KPI, bâtiments, évolution, charge agents, stats assistant)
+- [x] b3 Filtres avancés + export CSV audité (US-27)
+- [x] b4 Page dashboard (Recharts)
 
 ## Bloc c — Assistant (US-19 à US-26)
 - [ ] c1 Ports `KnowledgeBase` (local / Bedrock KB) et `AiAssistant` (mock / Bedrock + Guardrails)
