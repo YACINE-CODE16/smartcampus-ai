@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet, useNavigate } from 'react-router';
 import { LANGS, ROLE_LABELS, type Bilingual, type Role } from '@smartcampus/shared';
 import { AlertsBanner } from '../components/AlertsBanner';
+import { NotificationBell } from '../components/NotificationBell';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useI18n } from '../lib/i18n';
@@ -17,6 +18,7 @@ const NAV: Record<Role, { to: string; label: Bilingual; end?: boolean }[]> = {
     { to: '/admin/tickets', label: { fr: 'Tickets', en: 'Tickets' } },
     { to: '/admin/reglages', label: { fr: 'Délais cibles', en: 'Target times' } },
     { to: '/admin/base-documentaire', label: { fr: 'Base documentaire', en: 'Knowledge base' } },
+    { to: '/admin/utilisateurs', label: { fr: 'Utilisateurs', en: 'Users' } },
   ],
 };
 
@@ -69,6 +71,7 @@ export function AppLayout() {
           <LangSwitch />
           {user && (
             <>
+              <NotificationBell role={user.role} />
               <span className="topbar__name">
                 {user.name} <span className="topbar__role">· {label(ROLE_LABELS[user.role])}</span>
               </span>

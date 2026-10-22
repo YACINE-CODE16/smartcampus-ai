@@ -11,6 +11,8 @@ import {
   type Urgency,
 } from '@smartcampus/shared';
 import { ApiRequestError, api } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
+import { formatAgo } from '../../lib/format';
 import { useI18n } from '../../lib/i18n';
 import { useApi } from '../../lib/useApi';
 
@@ -25,24 +27,54 @@ export interface ReportPrefill {
 }
 
 type Field = 'categoryId' | 'buildingId' | 'room' | 'description' | 'photo' | '_';
+
+/** US-07 : brouillon conservé sur l'appareil, par utilisateur (sans la photo, D17). */
+interface Draft {
+  categoryId: string | null;
+  buildingId: string | null;
+  room: string;
+  description: string;
+  urgency: Urgency;
+}
+const draftKey = (userId: string) => `sc_draft_${userId}`;
+function readDraft(userId: string | undefined): Draft | null {
+  if (!userId) return null;
+  try {
+    const raw = localStorage.getItem(draftKey(userId));
+    return raw ? (JSON.parse(raw) as Draft) : null;
+  } catch {
+    return null;
+  }
+}
+
+interface Similar {
+  ticketNumber: string;
+  title: string;
+  status: IncidentSummary['status'];
+  createdAt: string;
+}
 type Errors = Partial<Record<Field, string>>;
 
 const MAX_BYTES = SETTINGS.maxPhotoMb * 1024 * 1024;
 
 /** US-03 / US-04 / US-05 : signaler un incident. */
 export function ReportPage() {
-  const { t, label, category } = useI18n();
+  const { t, label, category, lang } = useI18n();
+  const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const prefill = (location.state as { prefill?: ReportPrefill } | null)?.prefill;
   const { data: refs, error: refsError } = useApi<Referentials>('/referentials');
+  // Un pré-remplissage de l'assistant l'emporte sur le brouillon.
+  const [draft] = useState(() => (prefill ? null : readDraft(user?.id)));
+  const [draftRestored, setDraftRestored] = useState(draft !== null);
 
   // `null` = pas encore choisi : on retombe alors sur la valeur pré-remplie (si elle existe).
-  const [chosenCategoryId, setCategoryId] = useState<string | null>(null);
-  const [chosenBuildingId, setBuildingId] = useState<string | null>(null);
-  const [room, setRoom] = useState(prefill?.room ?? '');
-  const [description, setDescription] = useState(prefill?.description ?? '');
-  const [urgency, setUrgency] = useState<Urgency>('NORMALE');
+  const [chosenCategoryId, setCategoryId] = useState<string | null>(draft?.categoryId ?? null);
+  const [chosenBuildingId, setBuildingId] = useState<string | null>(draft?.buildingId ?? null);
+  const [room, setRoom] = useState(prefill?.room ?? draft?.room ?? '');
+  const [description, setDescription] = useState(prefill?.description ?? draft?.description ?? '');
+  const [urgency, setUrgency] = useState<Urgency>(draft?.urgency ?? 'NORMALE');
   const [photo, setPhoto] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [errors, setErrors] = useState<Errors>({});
@@ -57,6 +89,56 @@ export function ReportPage() {
   const photoError = t(`Photo JPG ou PNG de ${SETTINGS.maxPhotoMb} Mo maximum`, `JPG or PNG photo, ${SETTINGS.maxPhotoMb} MB max`);
 
   useEffect(() => () => void (preview && URL.revokeObjectURL(preview)), [preview]);
+
+  // US-07 : enregistrement automatique du brouillon (après une courte pause).
+  useEffect(() => {
+    if (!user || created) return;
+    const timer = setTimeout(() => {
+      try {
+        const empty = !chosenCategoryId && !chosenBuildingId && !room.trim() && !description.trim();
+        if (empty) localStorage.removeItem(draftKey(user.id));
+        else {
+          const d: Draft = { categoryId: chosenCategoryId, buildingId: chosenBuildingId, room, description, urgency };
+          localStorage.setItem(draftKey(user.id), JSON.stringify(d));
+        }
+      } catch {
+        // stockage indisponible : pas de brouillon
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [user, created, chosenCategoryId, chosenBuildingId, room, description, urgency]);
+
+  function clearDraft() {
+    if (user) {
+      try {
+        localStorage.removeItem(draftKey(user.id));
+      } catch {
+        // rien à faire
+      }
+    }
+    setCategoryId(null);
+    setBuildingId(null);
+    setRoom('');
+    setDescription('');
+    setUrgency('NORMALE');
+    setDraftRestored(false);
+    setErrors({});
+  }
+
+  // US-06 : incident similaire déjà ouvert (même catégorie + même bâtiment).
+  const [similar, setSimilar] = useState<Similar[]>([]);
+  useEffect(() => {
+    if (!categoryId || !buildingId) return;
+    let cancelled = false;
+    api
+      .get<Similar[]>(`/incidents/similar?categoryId=${categoryId}&buildingId=${buildingId}`)
+      .then((items) => !cancelled && setSimilar(items))
+      .catch(() => !cancelled && setSimilar([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [categoryId, buildingId]);
+  const similarShown = categoryId && buildingId ? similar : [];
 
   // US-25 : suggestion de catégorie et d'urgence par l'IA, après une pause de saisie.
   const [suggestion, setSuggestion] = useState<TriageSuggestion | null>(null);
@@ -147,6 +229,13 @@ export function ReportPage() {
     setBusy(true);
     try {
       setCreated(await api.post<IncidentSummary>('/incidents', form));
+      if (user) {
+        try {
+          localStorage.removeItem(draftKey(user.id));
+        } catch {
+          // rien à faire
+        }
+      }
       // Le pré-remplissage vit dans l'historique du navigateur : on l'efface pour qu'un rechargement ne le réapplique pas.
       if (prefill) navigate(location.pathname, { replace: true, state: null });
       window.scrollTo({ top: 0 });
@@ -204,6 +293,16 @@ export function ReportPage() {
         </p>
       )}
       {refsError && <p className="alert alert--error">{refsError.message}</p>}
+      {draftRestored && (
+        <div className="alert alert--info draft-banner" role="status">
+          <span>
+            {t('Brouillon restauré. La photo n’est pas conservée dans le brouillon.', 'Draft restored. The photo is not kept in drafts.')}
+          </span>
+          <button type="button" className="btn btn--ghost btn--sm" onClick={clearDraft}>
+            {t('Effacer le brouillon', 'Discard draft')}
+          </button>
+        </div>
+      )}
 
       <form className="form card" onSubmit={onSubmit} noValidate>
         <fieldset className="field">
@@ -283,6 +382,24 @@ export function ReportPage() {
             )}
           </div>
         </div>
+
+        {similarShown.length > 0 && (
+          <div className="alert alert--warning similar" role="status">
+            <p>
+              <strong>{t('Un incident similaire est déjà en cours de traitement :', 'A similar incident is already being handled:')}</strong>
+            </p>
+            <ul>
+              {similarShown.map((x) => (
+                <li key={x.ticketNumber}>
+                  {x.ticketNumber} — {x.title} · {label(STATUS_LABELS[x.status])} · {formatAgo(x.createdAt, lang)}
+                </li>
+              ))}
+            </ul>
+            <p className="similar__hint">
+              {t('Vous pouvez tout de même envoyer votre signalement s’il s’agit d’un autre problème.', 'You can still send your report if it is a different problem.')}
+            </p>
+          </div>
+        )}
 
         <div className="field">
           <label htmlFor="f-description">

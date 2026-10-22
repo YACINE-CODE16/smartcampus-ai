@@ -30,10 +30,10 @@ Un commit par bloc. Les tests existants doivent passer ; chaque nouvelle règle 
 - [x] c4 Page chat (mention IA, sources, ticket pré-rempli, 👍/👎) ; suggestion IA dans le formulaire (US-25)
 
 ## Bloc d — Compléments étudiant et rôles (US-02, 06, 07, 10, 11, 12)
-- [ ] d1 Page Utilisateurs + changement de rôle audité (US-02)
-- [ ] d2 Avertissement doublon (US-06) ; brouillon (US-07)
-- [ ] d3 Cloche de notifications (US-10)
-- [ ] d4 Confirmer / contester (US-11) ; notation (US-12)
+- [x] d1 Page Utilisateurs + changement de rôle audité (US-02)
+- [x] d2 Avertissement doublon (US-06) ; brouillon (US-07)
+- [x] d3 Cloche de notifications (US-10)
+- [x] d4 Confirmer / contester (US-11) ; notation (US-12)
 
 ## Bloc e — Transverses (US-34 à US-38)
 - [ ] e1 Suppression des données d'un étudiant (US-34)

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { bi, DASHBOARD_PERIODS, GRANULARITIES, SETTINGS } from '@smartcampus/shared';
+import { bi, DASHBOARD_PERIODS, GRANULARITIES, ROLES, SETTINGS } from '@smartcampus/shared';
 import type { Container } from '../../container';
 import { NotFoundError } from '../../domain/errors';
 import { requestLang } from '../lang';
@@ -47,6 +47,19 @@ export function adminRouter(container: Container): Router {
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="smartcampus-tickets-${date}.csv"`);
     res.send(csv);
+  });
+
+  /** US-02 : comptes et rôles. */
+  router.get('/admin/users', async (req, res) => {
+    const { q } = parseBody(z.object({ q: z.string().max(100).optional() }), req.query);
+    res.json(await container.users.list(q));
+  });
+
+  router.patch('/admin/users/:id/role', async (req, res) => {
+    const id = z.uuid().safeParse(req.params.id);
+    if (!id.success) throw new NotFoundError();
+    const { role } = parseBody(z.object({ role: z.enum(ROLES, { error: bi('Rôle inconnu', 'Unknown role') }) }), req.body);
+    res.json(await container.users.setRole(currentUser(req), id.data, role));
   });
 
   router.get('/admin/categories', async (_req, res) => {

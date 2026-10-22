@@ -24,6 +24,7 @@ import { ExportService } from './services/export';
 import { IncidentService } from './services/incidents';
 import { KnowledgeAdminService } from './services/knowledge-admin';
 import { NotificationService } from './services/notifications';
+import { UserAdminService } from './services/users';
 import { WorkflowService } from './services/workflow';
 
 /**
@@ -47,6 +48,7 @@ export interface Container {
   exports: ExportService;
   assistant: AssistantService;
   knowledge: KnowledgeAdminService;
+  users: UserAdminService;
   /** Nom de l'implémentation active par port (affiché par /api/health). */
   adapterNames: Record<string, string>;
   dispose(): Promise<void>;
@@ -93,6 +95,7 @@ export function createContainer(env: Env): Container {
     exports: new ExportService(prisma, audit),
     assistant: new AssistantService(prisma, kb, ai, mock),
     knowledge: new KnowledgeAdminService(prisma),
+    users: new UserAdminService(prisma, audit),
     adapterNames: { database: 'postgresql', auth: auth.name, storage: storage.name, mail: mailer.name, knowledgeBase: kb.name, ai: ai.name },
     dispose: () => prisma.$disconnect(),
   };

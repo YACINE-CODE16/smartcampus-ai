@@ -3,6 +3,7 @@ import { Placeholder } from '../components/Placeholder';
 import { AdminSettingsPage } from '../features/admin/AdminSettingsPage';
 import { DashboardPage } from '../features/admin/DashboardPage';
 import { KnowledgePage } from '../features/admin/KnowledgePage';
+import { UsersPage } from '../features/admin/UsersPage';
 import { AdminTicketsPage } from '../features/admin/AdminTicketsPage';
 import { AgentHomePage } from '../features/agent/AgentHomePage';
 import { LoginPage } from '../features/auth/LoginPage';
@@ -49,6 +50,7 @@ export const router = createBrowserRouter([
           { path: 'tickets/:id', element: <WorkIncidentPage base="/admin/tickets" /> },
           { path: 'reglages', element: <AdminSettingsPage /> },
           { path: 'base-documentaire', element: <KnowledgePage /> },
+          { path: 'utilisateurs', element: <UsersPage /> },
         ],
       },
       { path: '*', element: <Placeholder title="Page introuvable" story="404" /> },
