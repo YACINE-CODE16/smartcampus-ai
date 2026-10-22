@@ -1,171 +1,153 @@
 # Conception — SmartCampus AI
 
-> Contexte : workshop Capgemini × ESIEA. MVP démontrable déployé sur AWS le vendredi 23/10.
-> Même code en local et en production ; seules les variables d'environnement changent.
+> Périmètre : US-01 à US-38. Même code en local et en production ; seules les variables d'environnement changent.
 
-## 1. Vue d'ensemble
+## 1. Architecture
 
 ```
-                       LOCAL                                      PRODUCTION (us-east-1)
- Navigateur ─▶ Vite :5173 ──/api──▶ API :3000          Navigateur ─HTTPS─▶ EC2 : Traefik (Let's Encrypt)
-                                      │                                     ├─ /      → web (nginx, build Vite)
-                         PostgreSQL (docker-compose)                        └─ /api/* → api (Node)
-                         dossier ./storage/uploads                                       │
-                         assistant mock                          RDS PostgreSQL ◀────────┤
-                                                                 S3 (photos)    ◀────────┤  rôle IAM de l'instance
-                                                                 Bedrock Converse ◀──────┘
+                LOCAL                                          PRODUCTION (us-east-1)
+ Navigateur ─▶ Vite :5173 ──/api──▶ API :3000      Navigateur ─HTTPS─▶ EC2 · Traefik (Let's Encrypt)
+                                     │                                  ├─ /      → web (nginx)
+                PostgreSQL (docker)  │                                  └─ /api/* → api (Node)
+                storage/uploads      │                    RDS PostgreSQL ◀──┤
+                storage/outbox (.eml)│                    S3 (photos)    ◀──┤ rôle IAM d'instance
+                assistant mock       │                    SES (emails)   ◀──┤
+                                     │                    Bedrock Converse + Guardrails + Knowledge Base
 ```
 
-- **Monorepo npm** : `apps/web` (React + Vite), `apps/api` (Node + Express + TypeScript + Prisma), `packages/shared` (configuration, règles pures, types).
-- **Base** : PostgreSQL partout (docker-compose en local, RDS en production) → aucune migration de code entre les deux.
-- **Adapters activables par variable d'environnement** :
+Monorepo : `apps/web` (React + Vite), `apps/api` (Express + Prisma), `packages/shared` (règles pures, configuration, types).
 
-| Port | Variable | Local | Production |
-|---|---|---|---|
-| `AuthProvider` | `AUTH_PROVIDER=local` | comptes seedés + JWT (cookie httpOnly) | identique (SSO simulé) ; vrai SSO plus tard |
-| `FileStorage` | `STORAGE_DRIVER=local\|s3` | dossier `apps/api/storage/uploads` | bucket S3 (`S3_BUCKET`) |
-| `AiAssistant` | `AI_DRIVER=mock\|bedrock` | mock mots-clés sur la FAQ | Bedrock Converse (`BEDROCK_MODEL_ID`, us-east-1) |
+## 2. Ports et adapters (sélection par variables d'environnement)
 
-- Les services métier n'importent que ces ports et Prisma. Seul `container.ts` instancie les adapters.
-- **Simplification assumée** : comme PostgreSQL est identique en local et sur RDS, l'abstraction `Repositories` / `UnitOfWork` est supprimée (Prisma est utilisé directement par les services, avec des transactions Prisma). Les ports `Mailer` (emails : Won't) et `Scheduler` sont aussi supprimés. Le contrôle des retards de 24 h est un simple intervalle dans l'API, avec une instance unique sur EC2.
+| Port | Variable | Local | Production | US |
+|---|---|---|---|---|
+| `AuthProvider` | `AUTH_PROVIDER=local` | comptes seedés (SSO simulé), JWT cookie httpOnly | idem (vrai SSO plus tard) | 01 |
+| `FileStorage` | `STORAGE_DRIVER=local\|s3` | dossier `storage/uploads` | S3 privé, SSE-S3 | 04, 34 |
+| `Mailer` | `MAIL_DRIVER=console\|ses` | console + `storage/outbox/*.eml` | Amazon SES (`MAIL_FROM`) | 10, 18 |
+| `KnowledgeBase` | `KB_DRIVER=local\|bedrock` | FAQ + documents en PostgreSQL, recherche par mots-clés | Bedrock Knowledge Base (`BEDROCK_KB_ID`, API Retrieve) | 19, 20, 24 |
+| `AiAssistant` | `AI_DRIVER=mock\|bedrock` | mock déterministe (intentions + mots-clés) | Converse (`BEDROCK_MODEL_ID` = Nova Lite) + Guardrails (`BEDROCK_GUARDRAIL_ID`) | 19–26 |
 
-## 2. Règles métier (`packages/shared`)
+En production, si Bedrock échoue, l'assistant bascule sur le mock et le journalise. La FAQ gérée par l'admin (US-24) reste en PostgreSQL dans les deux modes ; en mode `bedrock`, les passages de la Knowledge Base complètent ceux de la FAQ.
 
-### Rôles
-`STUDENT`, `AGENT`, `ADMIN`. Pas d'inscription : les comptes sont seedés (US-02 = Could).
+Hors ports (instance unique sur EC2) : **hub SSE** (temps réel) et **contrôle périodique des délais cibles** (intervalle de 5 min dans l'API).
 
-### Statuts et transitions
-```
-            ┌──────────── REJETE (motif obligatoire) ◀─────────┐
-            │                                                   │
- NOUVEAU ───┴─▶ EN_COURS ──▶ RESOLU ──(confirmation)──▶ FERME   │
-                   ▲            │                               │
-                   └(contest.)──┘   NOUVEAU / EN_COURS ─────────┘
-```
-| De | Vers | Qui | Conditions / effets |
-|---|---|---|---|
-| NOUVEAU | EN_COURS | AGENT affecté (ou qui prend le ticket non affecté), ADMIN | `takenAt` renseigné ; prise en charge = affectation à soi si non affecté (D4) |
-| NOUVEAU, EN_COURS | REJETE | AGENT affecté, ADMIN | motif obligatoire (US-17, Should) |
-| EN_COURS | RESOLU | AGENT affecté, ADMIN | `resolvedAt = now` |
-| RESOLU | FERME | STUDENT propriétaire (confirme), ADMIN | `closedAt = now` (US-11, Should) |
-| RESOLU | EN_COURS | STUDENT propriétaire (conteste) | `reopenCount + 1`, `resolvedAt` effacé (US-11, Should) |
+## 3. Règles métier (`packages/shared/src/domain`)
 
-Une table unique `TRANSITIONS` dans `packages/shared/src/config/statuses.ts`, et une fonction pure `canTransition(ticket, to, actor)` utilisée par le front (pour afficher les boutons) et par l'API (pour imposer la règle).
-
-### Priorité
-`priority = category.autoPriority ?? urgency`. La catégorie Sécurité a `autoPriority = CRITIQUE` (dans la base, pas en dur). Un ticket critique créé déclenche une alerte temps réel dans l'espace admin.
-
-### Retard
-`isLate = status === 'NOUVEAU' && now - createdAt > 24 h` (calculé, pas stocké). Une tâche toutes les 15 min marque `lateNotifiedAt` et crée la notification étudiant (avec US-10).
-
-### Accès (R1), appliqué dans chaque requête Prisma
-| Ressource | STUDENT | AGENT | ADMIN |
-|---|---|---|---|
-| Ticket, historique, photo | `ownerId = moi` | `assignedToId = moi` OU `assignedToId IS NULL` | tout |
-| Modifier un ticket | confirmer / contester les siens | les siens (affectés) ; prendre les non affectés | tout |
-| Dashboard, affectation | ✗ | ✗ | ✓ |
-| Assistant | ses tickets uniquement dans le contexte | ✗ | ✗ |
-
-Un ticket non autorisé renvoie **404** (on ne révèle pas son existence).
-
-## 3. Modèle de données (Prisma, PostgreSQL)
-
-| Modèle | Champs |
-|---|---|
-| **User** | id, email (unique), name, role, passwordHash, createdAt |
-| **Category** | id, slug (unique), label, description, autoPriority?, order, active |
-| **Building** | id, code (unique), name, order |
-| **Incident** | id (uuid), number (autoincrement → `SC-0001`), title, categoryId, buildingId, room, description, photoKey?, urgency, priority, status, ownerId, assignedToId?, reopenCount, rejectionReason?, createdAt, updatedAt, takenAt?, resolvedAt?, closedAt?, lateNotifiedAt? |
-| **IncidentEvent** | id, incidentId, type (`CREATED`/`STATUS`/`ASSIGN`/`UPDATE`), fromStatus?, toStatus?, comment?, authorId?, authorRole (`STUDENT`/`AGENT`/`ADMIN`/`SYSTEM`), createdAt |
-| **FaqEntry** | id, question, answer, keywords[], category? |
-| **Notification** (Should) | id, userId, incidentId, type, message, read, createdAt |
-| **AssistantFeedback** (Should) | id, userId, messageId, helpful, createdAt |
-
-Index : `Incident(ownerId)`, `Incident(assignedToId, status)`, `Incident(createdAt)`, `IncidentEvent(incidentId, createdAt)`.
-Titre automatique : `« <Catégorie> – <Bâtiment> <salle> »` (pas de champ titre dans le formulaire).
-
-## 4. API HTTP
-
-| Méthode et route | Rôles | US |
+| Règle | Fonction pure | US |
 |---|---|---|
-| `GET /api/health` | public | — |
-| `POST /api/auth/login` · `POST /api/auth/logout` · `GET /api/auth/me` · `GET /api/auth/demo-accounts` (si `DEMO_MODE`) | public / connecté | US-01 |
-| `GET /api/referentials` (catégories, bâtiments, urgences) | connecté | US-03 |
-| `POST /api/incidents` (multipart : champs + `photo`) | STUDENT | US-03/04/05 |
-| `GET /api/incidents` (filtres : `status`, `categoryId`, `buildingId`, `assignedToId`, `scope=mine\|unassigned`) | tous, filtrés par R1 | US-08, US-13 |
-| `GET /api/incidents/:id` (avec historique) | R1 | US-09 |
-| `GET /api/incidents/:id/photo` | R1 | US-04 |
-| `POST /api/incidents/:id/assign` `{ agentId }` | ADMIN | US-13 |
-| `POST /api/incidents/:id/take` | AGENT, ADMIN | US-14 |
-| `POST /api/incidents/:id/transition` `{ to, comment?, reason? }` | selon la table | US-14, US-11, US-17 |
-| `GET /api/agents` | ADMIN | US-13 |
-| `GET /api/admin/dashboard?period=7d\|30d\|all` | ADMIN | US-28/29/30 |
-| `GET /api/admin/alerts` (critiques ouverts + retards) | ADMIN | R3, R4 |
-| `POST /api/assistant/ask` `{ message, history[] }` | STUDENT | US-19/21/26 |
-| `GET /api/events` (SSE) | connecté | temps réel |
+| Transitions autorisées par acteur (agent affecté, propriétaire, admin) | `allowedTransitions`, `findTransition` | 11, 14, 17 |
+| Prise en charge d'un ticket non affecté | `canTake` | 14 |
+| Visibilité R1 | `canView` | tout |
+| Priorité (Sécurité → CRITIQUE) | `computePriority` | 05, 16 |
+| Retard selon le délai cible de la catégorie | `isLate(ticket, targetHours, now)` | 18 |
+| Peut noter (propriétaire, RESOLU/FERME, pas déjà noté) | `canRate` | 12 |
+| Peut fusionner (source ≠ cible, non closes) | `canMerge` | 17 |
+| KPI (délai moyen, taux de résolution/réouverture, satisfaction, buckets temporels) | `kpi.ts` | 28–33 |
+| Détection de langue FR/EN | `detectLanguage` | 38 |
 
-Erreurs : `{ error, message }` → 400 (validation), 401, 403, 404, 409 (transition interdite ou conflit de prise en charge).
+### Transitions
+| De | Vers | Acteurs | Détails |
+|---|---|---|---|
+| NOUVEAU | EN_COURS | agent affecté, admin | `takenAt` |
+| NOUVEAU, EN_COURS | REJETE | agent affecté, admin | motif obligatoire ; audit |
+| EN_COURS | RESOLU | agent affecté, admin | `resolvedAt` |
+| RESOLU | FERME | propriétaire, admin | `closedAt` |
+| RESOLU | EN_COURS | propriétaire | commentaire obligatoire, `reopenCount + 1` |
 
-## 5. Authentification (SSO simulé)
-- `LocalAuthProvider.authenticate(email, password)` : vérifie le hash scrypt du compte seedé.
-- Jeton JWT HS256 (8 h) en cookie `sc_session` httpOnly, `SameSite=Lax`, `Secure` en production.
-- Middleware `requireAuth` → `req.user = { id, email, name, role }` ; `requireRole(...)`.
-- La page « Connexion école » propose, en mode démo, des boutons de connexion rapide pour les 5 comptes.
-- Brancher un vrai SSO (OIDC de l'école) = nouvel `AuthProvider` + route de callback ; le reste du code ne change pas.
+## 4. Modèle de données (PostgreSQL)
 
-## 6. Temps réel (SSE)
-Hub en mémoire (instance unique). Événements ne contenant que des identifiants : `incident.created`, `incident.updated`, `alert.critical`. Destinataires : propriétaire, agent affecté, tous les agents (file non affectée), tous les admins. Le front recharge via l'API, qui applique R1.
+| Modèle | Champs principaux | US |
+|---|---|---|
+| User | email, name, role, passwordHash, locale (`fr`/`en`), anonymizedAt? | 01, 02, 34, 38 |
+| Category | slug, label, labelEn, description, descriptionEn, autoPriority?, **targetHours (24)**, order, active | 03, 18, 38 |
+| Building | code, name, order | 03 |
+| Incident | number, title, categoryId, buildingId, room, description, photoKey?, urgency, priority, status, ownerId, assignedToId?, reopenCount, rejectionReason?, **mergedIntoId?**, createdAt, takenAt?, resolvedAt?, closedAt?, lateNotifiedAt?, assistantInteractionId? | 03–18, 21 |
+| IncidentEvent | type (`CREATED`/`STATUS`/`ASSIGN`/`UPDATE`/`MERGE`), fromStatus?, toStatus?, comment?, authorId?, authorRole | 09 |
+| InternalNote | incidentId, authorId, body, createdAt | 15 |
+| Rating | incidentId (unique), ownerId, score 1–5, comment? | 12 |
+| Notification | userId, incidentId?, type, params (JSON), read, createdAt | 10 |
+| FaqEntry | question, answer, questionEn, answerEn, keywords[], topic | 19, 24 |
+| KbDocument | title, content, language, createdAt, updatedAt | 24 |
+| AssistantInteraction | userId, language, kind, sources (JSON), feedback (`UP`/`DOWN`)?, createdIncidentId?, createdAt — **sans le texte de la question** | 21, 23, 32 |
+| AuditLog | actorId, actorRole, action (`ROLE_CHANGE`/`REJECT`/`MERGE`/`DATA_DELETION`/`EXPORT`), targetType, targetId, details (JSON), createdAt | 37 |
 
-## 7. Assistant IA
+## 5. API
+
+| Route | Rôles | US |
+|---|---|---|
+| `POST /auth/login` · `/logout` · `GET /auth/me` · `GET /auth/demo-accounts` · `PATCH /auth/me` (locale) | — | 01, 38 |
+| `GET /referentials` | connecté | 03 |
+| `POST /incidents` (multipart) · `GET /incidents` · `GET /incidents/:id` · `GET /incidents/:id/photo` | R1 | 03–09 |
+| `GET /incidents/similar?categoryId&buildingId` | STUDENT | 06 |
+| `POST /incidents/:id/take` · `/transition` `{to, comment?, reason?}` · `PATCH /incidents/:id` `{categoryId?, urgency?}` | selon transitions | 11, 14, 16, 17 |
+| `POST /incidents/:id/assign` `{agentId}` | ADMIN | 13 |
+| `POST /incidents/:id/merge` `{targetNumber}` | agent affecté, ADMIN | 17 |
+| `GET/POST /incidents/:id/notes` | AGENT (ticket visible), ADMIN | 15 |
+| `POST /incidents/:id/rating` | propriétaire | 12 |
+| `GET /notifications` · `POST /notifications/:id/read` · `/read-all` | connecté | 10 |
+| `GET /events` (SSE) | connecté | 10, 13, R3 |
+| `GET /agents` | ADMIN | 13, 33 |
+| `GET /admin/alerts` | ADMIN | R3, 18 |
+| `GET/PATCH /admin/categories` (délais cibles) | ADMIN | 18 |
+| `GET /admin/dashboard?period&granularity` | ADMIN | 28–33 |
+| `GET /admin/incidents/export.csv?…` | ADMIN | 27 |
+| `GET /admin/users` · `PATCH /admin/users/:id/role` · `POST /admin/users/:id/erase` | ADMIN | 02, 34 |
+| `GET /admin/audit` | ADMIN | 37 |
+| `GET/POST/PATCH/DELETE /admin/faq` · `/admin/documents` | ADMIN | 24 |
+| `POST /assistant/ask` · `POST /assistant/interactions/:id/feedback` · `POST /assistant/triage` | STUDENT | 19–23, 25 |
+
+Erreurs : `{ error, message, fields? }`. Les messages sont localisés selon l'en-tête `Accept-Language` (catalogue FR/EN côté API).
+
+## 6. Temps réel et notifications
+- **SSE** `GET /api/events` : hub en mémoire par utilisateur et par rôle. Événements sans contenu sensible : `incident.changed {id}`, `notification {unread}`, `alert {kind}`. Le front recharge via l'API (R1 appliquée).
+- **NotificationService.notify(userId, type, incidentId, params)** : crée la notification, pousse `notification` par SSE, envoie l'email via `Mailer` dans la langue de l'utilisateur ; un échec d'email est journalisé.
+- Déclencheurs : statut changé (propriétaire), affectation (agent), contestation (agent), rejet/fusion (propriétaire), délai dépassé (propriétaire + alerte admin), ticket critique créé ou requalifié (alerte admin).
+
+## 7. Assistant
 ```
-POST /api/assistant/ask
-  → FAQ (base) + 10 derniers tickets DE L'UTILISATEUR CONNECTÉ (chargés côté serveur par req.user.id)
-  → AiAssistant.reply(message, contexte)
-  → { answer, kind: 'faq'|'ticket_status'|'needs_ticket'|'out_of_scope', sources: [{ faqId, question }], suggestedTicket? }
+POST /assistant/ask { message, history[] }
+ → langue = detectLanguage(message)
+ → passages = KnowledgeBase.search(message, langue)             (FAQ + documents)
+ → tickets  = 10 derniers tickets de req.user (jamais d'autres)
+ → AiAssistant.reply(message, { passages, tickets, langue, referentials })
+ → { interactionId, kind: faq|document|ticket_status|needs_ticket|out_of_scope, answer, sources[], suggestedTicket? }
 ```
-- **Mock** : (1) hors périmètre → refus ; (2) intention « suivi » → statut réel des tickets ; (3) recherche mots-clés FAQ (normalisation des accents, score de recouvrement) → réponse + source ; (4) sinon ou si une intervention est nécessaire (« cassé », « bloqué », « en panne »…) → `needs_ticket` + ticket pré-rempli (catégorie, bâtiment et salle détectés par mots-clés).
-- **Bedrock** : API Converse, `BEDROCK_MODEL_ID` (Claude Haiku via un profil d'inférence `us.` ou Amazon Nova Lite), prompt système versionné (`services/assistant/system-prompt.ts`) qui impose le français, les sources uniquement, la citation de la FAQ, le refus hors périmètre et une sortie JSON au même format que le mock. En cas d'erreur Bedrock, l'API bascule sur le mock et le journalise.
-- Mention IA permanente dans le chat (US-26).
+- Le mock : (1) hors périmètre → refus ; (2) intention suivi (`SC-xxxx`, « où en est ») → statuts réels ; (3) passages au-dessus d'un seuil → réponse + source ; (4) sinon ou mot d'intervention (« cassé », « bloqué », « panne »…) → ticket pré-rempli.
+- Bedrock : prompt système versionné (`services/assistant/system-prompt.ts`), sortie JSON identique, guardrail appliqué.
+- Suggestion de qualification (US-25) : `AiAssistant.suggestTriage(description)` → `{ categorySlug, urgency }`.
+- Seuls des agrégats sont visibles par l'admin (US-32) ; le texte des questions n'est pas stocké.
 
-## 8. Front-end (`apps/web`)
-```
-/connexion                       Connexion école (SSO simulé)
-/etudiant                        Mes signalements          (US-08)
-/etudiant/signaler               Formulaire                (US-03/04/05, pré-remplissable US-21)
-/etudiant/tickets/:id            Détail + historique       (US-09, US-11)
-/etudiant/assistant              Assistant IA              (US-19/21/26)
-/agent                           Onglets « Mes tickets » / « Non affectés »
-/agent/tickets/:id               Détail + actions          (US-14)
-/admin                           Tableau de bord           (US-28/29/30) + alertes
-/admin/tickets(/:id)             Liste filtrable + affectation (US-13)
-/mentions                        Mentions et données personnelles
-```
-React Router 7, Recharts, CSS natif à variables, mobile-first. Client `api.ts` (fetch + cookie), hook `useLiveEvents` (SSE).
+## 8. Front-end
+- React Router ; espaces `/etudiant`, `/agent`, `/admin` ; `/connexion`, `/mentions`.
+- **i18n** (US-38) : `I18nProvider` + `useI18n()` → `t(fr, en)` pour les textes, plus des helpers pour les libellés métier ; langue mémorisée dans `localStorage` et dans le profil (emails). L'attribut `lang` du document suit la langue.
+- Brouillon (US-07) dans `localStorage`, clé par utilisateur.
+- Cloche de notifications et alertes admin alimentées par SSE (`useLiveEvents`).
+- Recharts pour le dashboard.
 
-## 9. Déploiement (cible du 23/10)
-- **Images** : `apps/api/Dockerfile` (Node 22 alpine, `prisma migrate deploy` au démarrage) ; `apps/web/Dockerfile` (build Vite → nginx).
-- **`docker-compose.prod.yml`** : `traefik` (ports 80/443, Let's Encrypt, domaine `<ip>.sslip.io`), `api`, `web`. La base est RDS (pas de conteneur Postgres en production).
-- **AWS** : EC2 t3.small (Amazon Linux 2023 + Docker), RDS PostgreSQL db.t4g.micro (chiffrement au repos), bucket S3 privé (SSE-S3, accès public bloqué), rôle IAM d'instance (S3 du bucket + `bedrock:InvokeModel`). Avec des identifiants de lab temporaires, on utilise le rôle d'instance fourni si la création de rôle est interdite.
-- **Groupes de sécurité** : EC2 ← 80/443 depuis Internet, 22 depuis votre IP ; RDS ← 5432 depuis le groupe de sécurité de l'EC2 uniquement.
-- Détails, coûts et suppression : `DEPLOY.md`.
+## 9. Sécurité (US-36)
+En-têtes de sécurité (CSP stricte côté API, `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`), limite de 10 tentatives de connexion / 15 min / IP, cookie `Secure` en production, HTTPS via Traefik, chiffrement au repos RDS et S3, photos servies après contrôle d'accès, journalisation des requêtes > 2 s.
 
-## 10. Données de démo (`npm run seed`)
-5 comptes (2 étudiants, 2 agents, 1 admin), 6 catégories, 5 bâtiments, 20 FAQ, 60 tickets sur 30 jours (tous statuts, avec historiques cohérents ; dont 2 Sécurité et 3 `NOUVEAU` créés il y a plus de 24 h). Idempotent : vide puis recrée les données.
+## 10. Déploiement
+EC2 (Docker Compose : Traefik + api + web), RDS PostgreSQL (chiffré), S3 (privé, chiffré), SES, Bedrock (Nova Lite, Guardrail, Knowledge Base facultative), rôle IAM d'instance. Détails, coûts et suppression dans `DEPLOY.md`.
 
 ## 11. Décisions
 | # | Sujet | Choix |
 |---|---|---|
-| D1 | Sous-catégories | aucune ; libellé + description d'exemples |
-| D2 | Lieu | bâtiment (liste en base) + salle en texte libre |
-| D3 | Numéro de ticket | **séquentiel `SC-0001`** (autoincrement PostgreSQL ; remplace le préfixe d'id) |
-| D4 | Prendre en charge | affecte à soi **et** passe `EN_COURS` |
-| D5 | Contestation | retour à `EN_COURS` (règle BA), même agent, `reopenCount + 1` |
+| D1 | Sous-catégories | aucune |
+| D2 | Lieu | bâtiment (liste) + salle libre |
+| D3 | Numéro | `SC-0001` séquentiel |
+| D4 | Prendre en charge | affecte à soi + `EN_COURS` |
+| D5 | Contestation | `EN_COURS`, même agent, `reopenCount + 1`, commentaire obligatoire |
 | D6 | Délai de résolution | jusqu'à la dernière résolution |
-| D7 | Affectation | ne change pas le statut ; événement `ASSIGN` |
-| D8 | Saut `NOUVEAU → RESOLU` | interdit |
-| D9 | Noms affichés | via les relations Prisma (plus de champs dénormalisés) |
-| D11 | Photos | servies par l'API après contrôle d'accès |
-| D12 | File non affectée | requête serveur dédiée (`scope=unassigned`) ; temps réel SSE |
-| D13 | Prise en charge (règle 24 h) | = sortie du statut `NOUVEAU` |
-| D14 | Titre | généré automatiquement, pas de champ dans le formulaire |
-| D15 | Envoi des photos | multipart vers l'API, qui écrit via `FileStorage` (pas d'URL présignée) |
+| D7 | Affectation | sans changement de statut |
+| D8 | `NOUVEAU → RESOLU` | interdit |
+| D11 | Photos | servies par l'API |
+| D12 | File non affectée | requête serveur dédiée |
+| D13 | Délai cible | délai de **prise en charge** (sortie de `NOUVEAU`), 24 h par défaut |
+| D14 | Titre | généré, régénéré si requalification |
+| D16 | Fusion (US-17) | le doublon passe `REJETE` (« Doublon de SC-xxxx ») avec `mergedIntoId` |
+| D17 | Brouillon (US-07) | sur l'appareil (localStorage), sans la photo |
+| D18 | Notation (US-12) | possible en `RESOLU` ou `FERME`, une fois |
+| D19 | Suppression (US-34) | anonymisation du compte et des contenus ; tickets conservés pour les statistiques |
+| D20 | Assistant | texte des questions non stocké (seulement type de réponse, sources, feedback) |
+| D21 | i18n | textes `t(fr, en)` co-localisés ; catégories et FAQ traduites en base ; noms de bâtiments non traduits |

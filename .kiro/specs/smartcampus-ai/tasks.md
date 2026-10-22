@@ -1,57 +1,48 @@
-# Plan d'implémentation — SmartCampus AI (workshop)
+# Plan d'implémentation — SmartCampus AI (US-01 à US-38)
 
-Commit à la fin de chaque étape. Les IDs renvoient à `requirements.md`.
+Un commit par bloc. Les tests existants doivent passer ; chaque nouvelle règle métier a ses tests.
 
-## Étape 0 — Setup (fait)
-- [x] Monorepo `apps/web`, `apps/api`, `packages/shared` ; specs Kiro et steering
+## Fait
+- [x] Setup monorepo, specs, steering
+- [x] US-01 connexion (SSO simulé) · US-03/04/05 signalement · US-08/09 suivi
+- [x] Seed : 5 comptes, catégories, 5 bâtiments, 20 FAQ, 60 tickets sur 30 jours
 
-## Ce soir (jeudi 22/10) — en local
+## Bloc a — Traitement agent/admin (US-13 à US-18) + moteur de notifications (US-10)
+- [ ] a1 Schéma : InternalNote, Notification, AuditLog, Rating, KbDocument, AssistantInteraction ; Category.targetHours/labelEn ; Incident.mergedIntoId ; User.locale
+- [ ] a2 Règles pures : `isLate` avec délai cible, `canMerge` + tests
+- [ ] a3 Ports `Mailer` (console/SES) ; `NotificationService` ; hub SSE ; `AuditService`
+- [ ] a4 Workflow : take (conditionnel), transition, assign, update (catégorie/urgence), merge, notes internes + tests d'intégration
+- [ ] a5 Contrôle périodique des délais cibles + `GET /admin/alerts` ; `GET/PATCH /admin/categories`
+- [ ] a6 i18n (infrastructure `t(fr, en)`) pour tout nouvel écran
+- [ ] a7 Front agent : files « Mes tickets » / « Non affectés », détail + actions + notes internes
+- [ ] a8 Front admin : liste filtrable, affectation, alertes temps réel, délais cibles
 
-### Étape 1 — PostgreSQL + auth (US-01)  ⏸ point de test PO après l'étape 3
-- [x] 1.1 `docker-compose.yml` (PostgreSQL 16) ; Prisma → `@prisma/adapter-pg` ; suppression de SQLite
-- [x] 1.2 Schéma complet (User, Category, Building, Incident, IncidentEvent, FaqEntry) + migration initiale
-- [x] 1.3 Configuration partagée : rôles `STUDENT/AGENT/ADMIN`, statuts + transitions, urgences/priorités ; règles pures + tests Vitest
-- [x] 1.4 Seed de base : 5 comptes, catégories, 5 bâtiments, FAQ (20)
-- [x] 1.5 `LocalAuthProvider` (scrypt + JWT cookie), routes `/api/auth/*`, `requireAuth` / `requireRole`
-- [x] 1.6 Front : React Router, page « Connexion école » (+ comptes de démo), garde de rôle, layouts des 3 espaces
+## Bloc b — Dashboard (US-27 à US-33)
+- [ ] b1 `kpi.ts` (délai moyen, taux, satisfaction, buckets jour/semaine/mois/année) + tests
+- [ ] b2 `GET /admin/dashboard` (volumes, KPI, bâtiments, évolution, charge agents, stats assistant)
+- [ ] b3 Filtres avancés + export CSV audité (US-27)
+- [ ] b4 Page dashboard (Recharts)
 
-### Étape 2 — Signalement (US-03/04/05)
-- [x] 2.1 Port `FileStorage` + `LocalFileStorage` + `S3FileStorage`
-- [x] 2.2 `POST /api/incidents` (multipart, validation zod, JPG/PNG ≤ 10 Mo, priorité, événement initial) + `GET /api/referentials`
-- [x] 2.3 Formulaire mobile-first (type, bâtiment, salle, description, urgence, photo + aperçu, mention RGPD) + confirmation `SC-xxxx`
+## Bloc c — Assistant (US-19 à US-26)
+- [ ] c1 Ports `KnowledgeBase` (local / Bedrock KB) et `AiAssistant` (mock / Bedrock + Guardrails)
+- [ ] c2 `POST /assistant/ask`, feedback, triage ; FAQ bilingue
+- [ ] c3 Admin : gestion FAQ + documents (US-24)
+- [ ] c4 Page chat (mention IA, sources, ticket pré-rempli, 👍/👎) ; suggestion IA dans le formulaire (US-25)
 
-### Étape 3 — Suivi (US-08/09)
-- [x] 3.1 `GET /api/incidents` filtré par R1, `GET /api/incidents/:id` (+ historique), `GET /api/incidents/:id/photo`
-- [x] 3.2 « Mes signalements » + page détail avec timeline
-- [x] 3.3 Tests d'accès (401/403/404 par rôle)
-- [ ] **⏸ Arrêt : test PO** ← on en est là
+## Bloc d — Compléments étudiant et rôles (US-02, 06, 07, 10, 11, 12)
+- [ ] d1 Page Utilisateurs + changement de rôle audité (US-02)
+- [ ] d2 Avertissement doublon (US-06) ; brouillon (US-07)
+- [ ] d3 Cloche de notifications (US-10)
+- [ ] d4 Confirmer / contester (US-11) ; notation (US-12)
 
-### Étape 4 — Traitement agent/admin (US-13/14) + règles Sécurité et 24 h
-- [ ] 4.1 `assign`, `take` (conditionnel), `transition` (table partagée) + tests
-- [ ] 4.2 Espace agent : « Mes tickets » / « Non affectés », détail + actions
-- [ ] 4.3 Espace admin : liste filtrable (statut, catégorie, bâtiment, agent) + affectation
-- [ ] 4.4 SSE `/api/events` ; alerte critique admin (R3) ; calcul « en retard » (R4)
+## Bloc e — Transverses (US-34 à US-38)
+- [ ] e1 Suppression des données d'un étudiant (US-34)
+- [ ] e2 Accessibilité / responsive (US-35)
+- [ ] e3 En-têtes de sécurité, limite de connexion (US-36)
+- [ ] e4 Journal d'audit (US-37)
+- [ ] e5 FR/EN complet + assistant dans la langue de la question (US-38)
 
-### Étape 5 — Dashboard (US-28/29/30)
-- [ ] 5.1 KPI purs (délai moyen, taux de résolution, taux de réouverture) + tests
-- [ ] 5.2 `GET /api/admin/dashboard` + page (compteurs par statut, catégories, tendance, bâtiments, retards, critiques)
-- [ ] 5.3 Seed des 60 tickets sur 30 jours (2 Sécurité, 3 en retard)
-
-### Étape 6 — Assistant (US-19/21/26)
-- [ ] 6.1 Port `AiAssistant` : `MockAiAssistant` + `BedrockAiAssistant` (Converse, us-east-1) + prompt système
-- [ ] 6.2 `POST /api/assistant/ask` (contexte = FAQ + tickets de l'utilisateur)
-- [ ] 6.3 Page chat : mention IA, sources, ticket pré-rempli → formulaire
-
-### Étape 7 — Livrables de déploiement
-- [ ] 7.1 `apps/api/Dockerfile`, `apps/web/Dockerfile` (nginx), `docker-compose.prod.yml` (Traefik + api + web)
-- [ ] 7.2 `DEPLOY.md` : console AWS pas à pas (EC2, RDS, S3, IAM, groupes de sécurité), variables, Bedrock, coûts, suppression
-- [ ] 7.3 Test local de la stack de production (`docker compose -f docker-compose.prod.yml`) avec PostgreSQL local
-
-## Demain (vendredi 23/10, 10h40–14h30)
-- [ ] 8.1 Déploiement AWS selon `DEPLOY.md` (identifiants du lab)
-- [ ] 8.2 Vérification en production + seed
-- [ ] 8.3 Should, par ordre de valeur pour la démo : US-11, US-17, US-10, US-22, US-06, US-16, US-23, US-25, US-33
-- [ ] 8.4 `DEMO.md` : scénario de 5 min (3 personas), comptes, URL
-
-## Could (documentées, non développées)
-US-02, US-07, US-12, US-15, fusion de doublons, US-18, US-24, US-31, US-32, US-34, US-37, US-38
+## Bloc f — Déploiement
+- [ ] f1 Dockerfiles api et web, `docker-compose.prod.yml` (Traefik)
+- [ ] f2 `DEPLOY.md` : schéma d'architecture, console AWS pas à pas, IAM, groupes de sécurité, variables, coûts, suppression
+- [ ] f3 Test local de la stack de production
