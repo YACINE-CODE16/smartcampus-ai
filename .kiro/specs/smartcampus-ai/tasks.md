@@ -24,10 +24,10 @@ Un commit par bloc. Les tests existants doivent passer ; chaque nouvelle règle 
 - [x] b4 Page dashboard (Recharts)
 
 ## Bloc c — Assistant (US-19 à US-26)
-- [ ] c1 Ports `KnowledgeBase` (local / Bedrock KB) et `AiAssistant` (mock / Bedrock + Guardrails)
-- [ ] c2 `POST /assistant/ask`, feedback, triage ; FAQ bilingue
-- [ ] c3 Admin : gestion FAQ + documents (US-24)
-- [ ] c4 Page chat (mention IA, sources, ticket pré-rempli, 👍/👎) ; suggestion IA dans le formulaire (US-25)
+- [x] c1 Ports `KnowledgeBase` (local / Bedrock KB) et `AiAssistant` (mock / Bedrock + Guardrails)
+- [x] c2 `POST /assistant/ask`, feedback, triage ; FAQ bilingue
+- [x] c3 Admin : gestion FAQ + documents (US-24)
+- [x] c4 Page chat (mention IA, sources, ticket pré-rempli, 👍/👎) ; suggestion IA dans le formulaire (US-25)
 
 ## Bloc d — Compléments étudiant et rôles (US-02, 06, 07, 10, 11, 12)
 - [ ] d1 Page Utilisateurs + changement de rôle audité (US-02)

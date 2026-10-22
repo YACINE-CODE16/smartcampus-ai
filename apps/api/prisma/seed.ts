@@ -222,9 +222,13 @@ async function main() {
     topic: string;
     question: string;
     answer: string;
+    questionEn: string;
+    answerEn: string;
     keywords: string[];
   }[];
   await prisma.faqEntry.createMany({ data: faq.map((f, order) => ({ ...f, order })) });
+  const documents = JSON.parse(readFileSync(new URL('./data/documents.json', import.meta.url), 'utf8')) as { title: string; content: string; language: string }[];
+  await prisma.kbDocument.createMany({ data: documents });
 
   const agents = [users.karim, users.karim, users.julie]; // Karim un peu plus chargé (US-33)
   const nonSecurity = CATEGORIES.map((c) => c.slug).filter((s) => s !== 'securite');

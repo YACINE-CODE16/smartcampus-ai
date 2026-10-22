@@ -222,3 +222,62 @@ export interface DashboardResponse {
     aiResolvedRate: number | null;
   };
 }
+
+/** Type de réponse de l'assistant (US-19 à US-26). */
+export const ASSISTANT_KINDS = ['faq', 'document', 'ticket_status', 'needs_ticket', 'out_of_scope'] as const;
+export type AssistantKind = (typeof ASSISTANT_KINDS)[number];
+
+export interface AssistantSource {
+  type: 'faq' | 'document';
+  id: string;
+  title: string;
+}
+
+/** Ticket proposé par l'assistant (US-21) ; l'étudiant valide toujours lui-même. */
+export interface SuggestedTicket {
+  categorySlug: string;
+  buildingCode?: string;
+  room?: string;
+  description: string;
+}
+
+export interface AssistantReplyDto {
+  interactionId: string;
+  kind: AssistantKind;
+  answer: string;
+  sources: AssistantSource[];
+  suggestedTicket?: SuggestedTicket;
+  /** Tickets de l'utilisateur cités dans la réponse (US-22), pour afficher des liens. */
+  tickets?: { id: string; ticketNumber: string }[];
+  language: Lang;
+}
+
+export interface AssistantMessageInput {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+/** US-25 : suggestion de qualification. */
+export interface TriageSuggestion {
+  categorySlug: string;
+  urgency: Urgency;
+}
+
+/** US-24 : base documentaire. */
+export interface FaqEntryDto {
+  id: string;
+  question: string;
+  answer: string;
+  questionEn: string | null;
+  answerEn: string | null;
+  keywords: string[];
+  topic: string;
+}
+
+export interface KbDocumentDto {
+  id: string;
+  title: string;
+  content: string;
+  language: Lang;
+  updatedAt: ISODate;
+}

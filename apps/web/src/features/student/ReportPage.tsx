@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
-import { Link, useLocation } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import {
   SETTINGS,
   STATUS_LABELS,
@@ -7,6 +7,7 @@ import {
   URGENCY_LABELS,
   type IncidentSummary,
   type Referentials,
+  type TriageSuggestion,
   type Urgency,
 } from '@smartcampus/shared';
 import { ApiRequestError, api } from '../../lib/api';
@@ -31,7 +32,9 @@ const MAX_BYTES = SETTINGS.maxPhotoMb * 1024 * 1024;
 /** US-03 / US-04 / US-05 : signaler un incident. */
 export function ReportPage() {
   const { t, label, category } = useI18n();
-  const prefill = (useLocation().state as { prefill?: ReportPrefill } | null)?.prefill;
+  const location = useLocation();
+  const navigate = useNavigate();
+  const prefill = (location.state as { prefill?: ReportPrefill } | null)?.prefill;
   const { data: refs, error: refsError } = useApi<Referentials>('/referentials');
 
   // `null` = pas encore choisi : on retombe alors sur la valeur pré-remplie (si elle existe).
@@ -54,6 +57,32 @@ export function ReportPage() {
   const photoError = t(`Photo JPG ou PNG de ${SETTINGS.maxPhotoMb} Mo maximum`, `JPG or PNG photo, ${SETTINGS.maxPhotoMb} MB max`);
 
   useEffect(() => () => void (preview && URL.revokeObjectURL(preview)), [preview]);
+
+  // US-25 : suggestion de catégorie et d'urgence par l'IA, après une pause de saisie.
+  const [suggestion, setSuggestion] = useState<TriageSuggestion | null>(null);
+  useEffect(() => {
+    const text = description.trim();
+    if (text.length < SETTINGS.triageMinChars) return;
+    const timer = setTimeout(() => {
+      api
+        .post<{ suggestion: TriageSuggestion | null }>('/assistant/triage', { description: text })
+        .then((r) => setSuggestion(r.suggestion))
+        .catch(() => setSuggestion(null));
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [description]);
+  const suggestedCategory = suggestion ? refs?.categories.find((c) => c.slug === suggestion.categorySlug) : undefined;
+  const showSuggestion =
+    description.trim().length >= SETTINGS.triageMinChars &&
+    suggestion !== null &&
+    suggestedCategory !== undefined &&
+    (suggestedCategory.id !== categoryId || suggestion.urgency !== urgency);
+
+  function applySuggestion() {
+    if (!suggestion || !suggestedCategory) return;
+    changeCategory(suggestedCategory.id);
+    setUrgency(suggestion.urgency);
+  }
 
   function validate(): Errors {
     const e: Errors = {};
@@ -118,6 +147,8 @@ export function ReportPage() {
     setBusy(true);
     try {
       setCreated(await api.post<IncidentSummary>('/incidents', form));
+      // Le pré-remplissage vit dans l'historique du navigateur : on l'efface pour qu'un rechargement ne le réapplique pas.
+      if (prefill) navigate(location.pathname, { replace: true, state: null });
       window.scrollTo({ top: 0 });
     } catch (err) {
       if (err instanceof ApiRequestError) setErrors({ ...err.fields, _: err.message });
@@ -273,6 +304,16 @@ export function ReportPage() {
             <p id="e-description" className="field__error">
               {errors.description}
             </p>
+          )}
+          {showSuggestion && (
+            <div className="ai-suggest" role="status">
+              <span>
+                ✨ {t('Suggestion IA :', 'AI suggestion:')} <strong>{category(suggestedCategory)}</strong> · {label(URGENCY_LABELS[suggestion.urgency])}
+              </span>
+              <button type="button" className="btn btn--secondary btn--sm" onClick={applySuggestion}>
+                {t('Appliquer', 'Apply')}
+              </button>
+            </div>
           )}
         </div>
 

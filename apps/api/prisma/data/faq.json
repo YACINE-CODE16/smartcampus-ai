@@ -3,120 +3,423 @@
     "topic": "reseau",
     "question": "Comment me connecter au wifi du campus ?",
     "answer": "Connectez-vous au réseau « eduroam » avec votre identifiant école complet (prenom.nom@esiea.fr) et votre mot de passe ENT. Si la connexion échoue : oubliez le réseau sur votre appareil, désactivez le « MAC aléatoire » puis reconnectez-vous. Le réseau « ESIEA-Invites » est réservé aux visiteurs.",
-    "keywords": ["wifi", "wi-fi", "eduroam", "internet", "connexion", "reseau", "connecter", "marche pas", "deconnecte"]
+    "keywords": [
+      "wifi",
+      "wi-fi",
+      "eduroam",
+      "internet",
+      "connexion",
+      "reseau",
+      "connecter",
+      "marche pas",
+      "deconnecte",
+      "network",
+      "not working",
+      "connect",
+      "disconnected"
+    ],
+    "questionEn": "How do I connect to the campus Wi-Fi?",
+    "answerEn": "Connect to the \"eduroam\" network with your full school login (firstname.lastname@esiea.fr) and your ENT password. If it fails: forget the network on your device, turn off \"random MAC address\", then reconnect. The \"ESIEA-Invites\" network is for visitors only."
   },
   {
     "topic": "reseau",
     "question": "J'ai oublié mon mot de passe ENT, que faire ?",
     "answer": "Rendez-vous sur la page « Mot de passe oublié » de l'ENT et suivez la procédure : un lien de réinitialisation est envoyé sur votre adresse personnelle déclarée à l'inscription. Sans accès à cette adresse, présentez-vous au service informatique (bâtiment C, bureau C012) avec votre carte étudiant.",
-    "keywords": ["mot de passe", "oublie", "ent", "identifiant", "compte", "bloque", "reinitialiser", "login"]
+    "keywords": [
+      "mot de passe",
+      "oublie",
+      "ent",
+      "identifiant",
+      "compte",
+      "bloque",
+      "reinitialiser",
+      "login",
+      "locked",
+      "password",
+      "reset",
+      "forgot",
+      "account"
+    ],
+    "questionEn": "I forgot my ENT password, what should I do?",
+    "answerEn": "Go to the ENT \"Forgot password\" page and follow the steps: a reset link is sent to the personal email address you gave at enrolment. Without access to it, go to the IT department (building C, office C012) with your student card."
   },
   {
     "topic": "reseau",
     "question": "Comment accéder aux ressources de l'école depuis chez moi (VPN) ?",
     "answer": "Installez le client VPN indiqué sur l'ENT (rubrique Informatique > VPN) et connectez-vous avec vos identifiants école. Le VPN donne accès aux licences logicielles et aux serveurs de TP. Les cours et Moodle restent accessibles sans VPN.",
-    "keywords": ["vpn", "distance", "maison", "chez moi", "acces", "serveur", "licence"]
+    "keywords": [
+      "vpn",
+      "distance",
+      "maison",
+      "chez moi",
+      "acces",
+      "serveur",
+      "licence",
+      "server",
+      "access",
+      "remote",
+      "home"
+    ],
+    "questionEn": "How can I access school resources from home (VPN)?",
+    "answerEn": "Install the VPN client listed on the ENT (IT > VPN) and sign in with your school credentials. The VPN gives access to software licences and lab servers. Courses and Moodle remain available without the VPN."
   },
   {
     "topic": "reseau",
     "question": "Comment obtenir un logiciel sous licence (MATLAB, SolidWorks, suite Office) ?",
     "answer": "Les logiciels sous licence sont listés sur l'ENT (Informatique > Logiciels). Office 365 est gratuit avec votre compte école. MATLAB et SolidWorks s'installent avec la clé fournie sur cette page et nécessitent le VPN hors campus.",
-    "keywords": ["logiciel", "licence", "matlab", "solidworks", "office", "installer", "word", "excel"]
+    "keywords": [
+      "logiciel",
+      "licence",
+      "matlab",
+      "solidworks",
+      "office",
+      "installer",
+      "word",
+      "excel",
+      "license",
+      "software",
+      "install"
+    ],
+    "questionEn": "How do I get licensed software (MATLAB, SolidWorks, Office)?",
+    "answerEn": "Licensed software is listed on the ENT (IT > Software). Office 365 is free with your school account. MATLAB and SolidWorks install with the key provided on that page and need the VPN off campus."
   },
   {
     "topic": "salle",
     "question": "Comment réserver une salle pour un travail de groupe ?",
     "answer": "Les salles de travail en groupe (B101 à B106 et les box de la bibliothèque) se réservent sur l'ENT, rubrique « Réservation de salles », par créneaux de 2 h, jusqu'à 7 jours à l'avance. La réservation doit être confirmée sur place dans les 15 premières minutes.",
-    "keywords": ["reserver", "reservation", "salle", "groupe", "projet", "box", "creneau"]
+    "keywords": [
+      "reserver",
+      "reservation",
+      "salle",
+      "groupe",
+      "projet",
+      "box",
+      "creneau",
+      "reserve",
+      "group",
+      "book",
+      "booking",
+      "room",
+      "project"
+    ],
+    "questionEn": "How do I book a room for group work?",
+    "answerEn": "Group work rooms (B101 to B106 and the library booths) are booked on the ENT, \"Room booking\" section, in 2-hour slots, up to 7 days ahead. Confirm the booking on site within the first 15 minutes."
   },
   {
     "topic": "salle",
     "question": "Quels sont les horaires d'ouverture des bâtiments ?",
     "answer": "Les bâtiments d'enseignement sont ouverts du lundi au vendredi de 7h30 à 21h et le samedi de 8h à 13h. La bibliothèque est ouverte de 8h30 à 20h en semaine. En dehors de ces horaires, l'accès se fait uniquement avec une autorisation de l'administration.",
-    "keywords": ["horaire", "heure", "ouverture", "ouvert", "ferme", "batiment", "samedi", "soir"]
+    "keywords": [
+      "horaire",
+      "heure",
+      "ouverture",
+      "ouvert",
+      "ferme",
+      "batiment",
+      "samedi",
+      "soir",
+      "open",
+      "hours",
+      "opening",
+      "evening",
+      "closed",
+      "building",
+      "saturday"
+    ],
+    "questionEn": "What are the building opening hours?",
+    "answerEn": "Teaching buildings are open Monday to Friday 7:30am–9pm and Saturday 8am–1pm. The library is open 8:30am–8pm on weekdays. Outside these hours, access requires authorisation from the administration."
   },
   {
     "topic": "salle",
     "question": "La salle de mon cours est fermée à clé, que faire ?",
     "answer": "Vérifiez d'abord l'emploi du temps sur l'ENT (un changement de salle a pu être publié). Si la salle est bien la bonne, prévenez l'accueil du bâtiment A (poste 1000) qui envoie un agent avec les clés, et signalez l'incident dans SmartCampus pour garder une trace.",
-    "keywords": ["salle fermee", "ferme a cle", "porte fermee", "cle", "acces salle", "verrouille"]
+    "keywords": [
+      "salle fermee",
+      "ferme a cle",
+      "porte fermee",
+      "cle",
+      "acces salle",
+      "verrouille",
+      "locked",
+      "room locked",
+      "key",
+      "classroom",
+      "door"
+    ],
+    "questionEn": "My classroom is locked, what should I do?",
+    "answerEn": "First check the timetable on the ENT (the room may have changed). If it is the right room, call the building A reception (ext. 1000), who will send someone with the keys, and report the incident in SmartCampus to keep a record."
   },
   {
     "topic": "materiel",
     "question": "Le vidéoprojecteur ne s'allume pas, que faire ?",
     "answer": "Vérifiez que la télécommande a des piles et que l'interrupteur mural « Vidéo » est sur ON. Le câble HDMI se trouve dans la boîte au pied du bureau ; sélectionnez la source « HDMI 1 ». Si rien ne s'affiche après 2 minutes, signalez l'incident en précisant la salle.",
-    "keywords": ["videoprojecteur", "projecteur", "hdmi", "ecran", "affichage", "telecommande", "projection"]
+    "keywords": [
+      "videoprojecteur",
+      "projecteur",
+      "hdmi",
+      "ecran",
+      "affichage",
+      "telecommande",
+      "projection",
+      "remote",
+      "display",
+      "projector",
+      "screen"
+    ],
+    "questionEn": "The projector won't turn on, what should I do?",
+    "answerEn": "Check the remote has batteries and the \"Video\" wall switch is ON. The HDMI cable is in the box under the desk; select the \"HDMI 1\" source. If nothing shows after 2 minutes, report the incident with the room number."
   },
   {
     "topic": "materiel",
     "question": "Un poste de la salle informatique ne démarre pas, que faire ?",
     "answer": "Vérifiez l'alimentation et l'écran, puis essayez un autre poste libre. Notez le numéro d'inventaire collé sur l'unité centrale (ex. INF-B204-12) et signalez l'incident avec ce numéro pour une intervention rapide.",
-    "keywords": ["pc", "ordinateur", "poste", "demarre pas", "salle informatique", "ecran noir", "clavier", "souris"]
+    "keywords": [
+      "pc",
+      "ordinateur",
+      "poste",
+      "demarre pas",
+      "salle informatique",
+      "ecran noir",
+      "clavier",
+      "souris",
+      "black screen",
+      "keyboard",
+      "won't start",
+      "computer",
+      "mouse"
+    ],
+    "questionEn": "A computer in the IT room won't start, what should I do?",
+    "answerEn": "Check the power and the screen, then try another free computer. Note the inventory number on the unit (e.g. INF-B204-12) and report the incident with it for a quick fix."
   },
   {
     "topic": "materiel",
     "question": "Comment imprimer sur le campus ?",
     "answer": "Les copieurs sont au rez-de-chaussée des bâtiments A et B et à la bibliothèque. Envoyez votre document depuis l'ENT (Impression > Envoyer) puis badgez avec votre carte étudiant sur le copieur. Chaque étudiant dispose de 300 pages par semestre, rechargeables à l'accueil.",
-    "keywords": ["imprimer", "impression", "imprimante", "copieur", "photocopie", "quota", "scanner"]
+    "keywords": [
+      "imprimer",
+      "impression",
+      "imprimante",
+      "copieur",
+      "photocopie",
+      "quota",
+      "scanner",
+      "scan",
+      "print",
+      "copier",
+      "printer",
+      "printing"
+    ],
+    "questionEn": "How do I print on campus?",
+    "answerEn": "Copiers are on the ground floor of buildings A and B and in the library. Send your document from the ENT (Printing > Send) then badge with your student card on the copier. Each student has 300 pages per semester, top-ups at reception."
   },
   {
     "topic": "materiel",
     "question": "Une chaise ou une table est cassée, que faire ?",
     "answer": "Ne l'utilisez pas et mettez-la de côté si c'est possible sans risque. Signalez l'incident dans SmartCampus avec la salle et, si possible, une photo du mobilier : l'équipe maintenance la remplace en général sous 48 h.",
-    "keywords": ["chaise", "table", "mobilier", "casse", "bureau", "meuble"]
+    "keywords": [
+      "chaise",
+      "table",
+      "mobilier",
+      "casse",
+      "bureau",
+      "meuble",
+      "broken",
+      "chair",
+      "furniture",
+      "desk"
+    ],
+    "questionEn": "A chair or table is broken, what should I do?",
+    "answerEn": "Do not use it and set it aside if it is safe to do so. Report the incident in SmartCampus with the room and, if possible, a photo: maintenance usually replaces it within 48 hours."
   },
   {
     "topic": "proprete",
     "question": "Les toilettes sont sales ou en panne, que faire ?",
     "answer": "Signalez l'incident dans SmartCampus en précisant le bâtiment et l'étage. L'équipe d'entretien passe deux fois par jour ; un signalement déclenche un passage supplémentaire. En cas de fuite d'eau importante, prévenez aussi l'accueil (poste 1000).",
-    "keywords": ["toilettes", "wc", "sanitaires", "sale", "proprete", "papier", "lavabo", "fuite", "eau"]
+    "keywords": [
+      "toilettes",
+      "wc",
+      "sanitaires",
+      "sale",
+      "proprete",
+      "papier",
+      "lavabo",
+      "fuite",
+      "eau",
+      "leak",
+      "water",
+      "paper",
+      "toilet",
+      "restroom",
+      "dirty",
+      "sink",
+      "toilets",
+      "cleaning"
+    ],
+    "questionEn": "The restrooms are dirty or out of order, what should I do?",
+    "answerEn": "Report the incident in SmartCampus with the building and floor. Cleaning staff come twice a day; a report triggers an extra visit. For a major water leak, also call reception (ext. 1000)."
   },
   {
     "topic": "proprete",
     "question": "Il fait trop froid ou trop chaud dans une salle, que faire ?",
     "answer": "Le chauffage est réglé à 20 °C et met environ une heure à réagir. Si la température reste anormale pendant un cours, signalez l'incident avec la salle : le service technique vérifie le thermostat et la ventilation.",
-    "keywords": ["chauffage", "froid", "chaud", "temperature", "climatisation", "radiateur", "ventilation"]
+    "keywords": [
+      "chauffage",
+      "froid",
+      "chaud",
+      "temperature",
+      "climatisation",
+      "radiateur",
+      "ventilation",
+      "air conditioning",
+      "radiator",
+      "heating",
+      "cold",
+      "hot"
+    ],
+    "questionEn": "It is too cold or too hot in a room, what should I do?",
+    "answerEn": "Heating is set to 20 °C and takes about an hour to react. If the temperature stays abnormal during a class, report the incident with the room: technical services will check the thermostat and ventilation."
   },
   {
     "topic": "securite",
     "question": "Que faire en cas d'urgence ou de danger sur le campus ?",
     "answer": "En cas de danger immédiat, appelez le 112 puis le poste de sécurité du campus (poste 2222, 24h/24). Pour un problème de sécurité non urgent (porte coupe-feu bloquée, éclairage défaillant, extincteur manquant), signalez-le dans SmartCampus : la catégorie Sécurité est traitée en priorité critique.",
-    "keywords": ["urgence", "danger", "securite", "accident", "blesse", "agression", "112", "malaise"]
+    "keywords": [
+      "urgence",
+      "danger",
+      "securite",
+      "accident",
+      "blesse",
+      "agression",
+      "112",
+      "malaise",
+      "assault",
+      "safety",
+      "injured",
+      "emergency"
+    ],
+    "questionEn": "What should I do in an emergency or danger on campus?",
+    "answerEn": "In immediate danger, call 112 then campus security (ext. 2222, 24/7). For a non-urgent safety issue (blocked fire door, broken lighting, missing extinguisher), report it in SmartCampus: the Safety category is handled as critical."
   },
   {
     "topic": "securite",
     "question": "Que faire si l'alarme incendie se déclenche ?",
     "answer": "Évacuez immédiatement par l'issue de secours la plus proche sans utiliser les ascenseurs, et rejoignez le point de rassemblement (parking principal). Ne revenez dans le bâtiment qu'après l'accord des guides-files ou des pompiers.",
-    "keywords": ["incendie", "alarme", "feu", "evacuation", "fumee", "extincteur"]
+    "keywords": [
+      "incendie",
+      "alarme",
+      "feu",
+      "evacuation",
+      "fumee",
+      "extincteur",
+      "fire",
+      "alarm",
+      "smoke",
+      "extinguisher"
+    ],
+    "questionEn": "What should I do if the fire alarm goes off?",
+    "answerEn": "Evacuate immediately through the nearest emergency exit without using lifts, and go to the assembly point (main car park). Only return when the fire wardens or firefighters allow it."
   },
   {
     "topic": "autre",
     "question": "J'ai perdu ma carte étudiant, comment la remplacer ?",
     "answer": "Déclarez la perte sur l'ENT (Scolarité > Carte étudiant) pour bloquer l'ancienne carte. La nouvelle carte est disponible à l'accueil du bâtiment C sous 3 jours ouvrés, contre 10 € de frais de réédition.",
-    "keywords": ["carte etudiant", "badge", "perdu", "vol", "remplacer", "carte"]
+    "keywords": [
+      "carte etudiant",
+      "badge",
+      "perdu",
+      "vol",
+      "remplacer",
+      "carte",
+      "stolen",
+      "replace",
+      "student card",
+      "lost",
+      "card"
+    ],
+    "questionEn": "I lost my student card, how do I replace it?",
+    "answerEn": "Report the loss on the ENT (Registrar > Student card) to block the old card. The new card is available at building C reception within 3 working days, for a €10 reissue fee."
   },
   {
     "topic": "autre",
     "question": "Où récupérer un objet perdu sur le campus ?",
     "answer": "Les objets trouvés sont centralisés à l'accueil du bâtiment A et conservés un mois. Présentez-vous avec votre carte étudiant et une description de l'objet.",
-    "keywords": ["objet perdu", "objets trouves", "perdu", "oublie", "retrouver", "affaires"]
+    "keywords": [
+      "objet perdu",
+      "objets trouves",
+      "perdu",
+      "oublie",
+      "retrouver",
+      "affaires",
+      "lost item",
+      "lost and found",
+      "belongings",
+      "lost",
+      "forgot"
+    ],
+    "questionEn": "Where can I find a lost item on campus?",
+    "answerEn": "Lost items are kept at building A reception for one month. Come with your student card and a description of the item."
   },
   {
     "topic": "autre",
     "question": "Quels sont les horaires du restaurant universitaire ?",
     "answer": "Le restaurant universitaire est ouvert du lundi au vendredi de 11h30 à 14h. La cafétéria du bâtiment A est ouverte de 8h à 17h. Le paiement se fait avec la carte étudiant rechargeable.",
-    "keywords": ["restaurant", "cantine", "ru", "manger", "dejeuner", "cafeteria", "repas"]
+    "keywords": [
+      "restaurant",
+      "cantine",
+      "ru",
+      "manger",
+      "dejeuner",
+      "cafeteria",
+      "repas",
+      "lunch",
+      "meal",
+      "eat",
+      "canteen"
+    ],
+    "questionEn": "What are the university restaurant opening hours?",
+    "answerEn": "The university restaurant is open Monday to Friday 11:30am–2pm. The building A cafeteria is open 8am–5pm. Payment is by rechargeable student card."
   },
   {
     "topic": "autre",
     "question": "Comment signaler un problème d'accessibilité (ascenseur, rampe) ?",
     "answer": "Signalez-le dans SmartCampus (catégorie Salle ou Matériel) en précisant le lieu ; un ascenseur en panne est traité en priorité. Pour un aménagement personnel, contactez la référente handicap à handicap@esiea.fr.",
-    "keywords": ["accessibilite", "ascenseur", "handicap", "rampe", "fauteuil", "pmr"]
+    "keywords": [
+      "accessibilite",
+      "ascenseur",
+      "handicap",
+      "rampe",
+      "fauteuil",
+      "pmr",
+      "ramp",
+      "wheelchair",
+      "accessibility",
+      "elevator",
+      "lift",
+      "disability"
+    ],
+    "questionEn": "How do I report an accessibility issue (lift, ramp)?",
+    "answerEn": "Report it in SmartCampus (Room or Equipment category) with the location; a broken lift is handled as a priority. For personal arrangements, contact the disability officer at handicap@esiea.fr."
   },
   {
     "topic": "autre",
     "question": "En combien de temps mon signalement est-il traité ?",
     "answer": "Chaque signalement est pris en charge en moins de 24 h ouvrées ; au-delà, il est signalé en retard à l'administration et vous êtes prévenu. Les incidents de sécurité sont traités en priorité critique. Vous pouvez suivre l'avancement et l'historique dans « Mes signalements ».",
-    "keywords": ["delai", "combien de temps", "traite", "attente", "suivi", "signalement", "ticket"]
+    "keywords": [
+      "delai",
+      "combien de temps",
+      "traite",
+      "attente",
+      "suivi",
+      "signalement",
+      "ticket",
+      "follow",
+      "handled",
+      "report",
+      "how long",
+      "delay",
+      "waiting"
+    ],
+    "questionEn": "How long does it take to handle my report?",
+    "answerEn": "Each report is picked up within 24 working hours; beyond that, it is flagged as overdue to the administration and you are notified. Safety incidents are handled as critical. You can follow progress and history in \"My reports\"."
   }
 ]

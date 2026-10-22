@@ -6,6 +6,7 @@ import { DomainError } from '../domain/errors';
 import { requestLang } from './lang';
 import { requireAuth } from './middlewares/auth';
 import { adminRouter } from './routes/admin';
+import { assistantRouter, knowledgeRouter } from './routes/assistant';
 import { authRouter } from './routes/auth';
 import { eventsRouter } from './routes/events';
 import { healthRouter } from './routes/health';
@@ -48,6 +49,8 @@ export function createApp(container: Container) {
   app.use('/api', incidentsRouter(container));
   app.use('/api/notifications', notificationsRouter(container));
   app.use('/api/events', eventsRouter(container));
+  app.use('/api/assistant', assistantRouter(container));
+  app.use('/api/admin/kb', knowledgeRouter(container));
   app.use('/api', adminRouter(container));
 
   app.use('/api', (req, res) => {

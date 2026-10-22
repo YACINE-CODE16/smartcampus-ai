@@ -16,6 +16,7 @@ const NAV: Record<Role, { to: string; label: Bilingual; end?: boolean }[]> = {
     { to: '/admin', label: { fr: 'Tableau de bord', en: 'Dashboard' }, end: true },
     { to: '/admin/tickets', label: { fr: 'Tickets', en: 'Tickets' } },
     { to: '/admin/reglages', label: { fr: 'Délais cibles', en: 'Target times' } },
+    { to: '/admin/base-documentaire', label: { fr: 'Base documentaire', en: 'Knowledge base' } },
   ],
 };
 

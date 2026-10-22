@@ -2,10 +2,12 @@ import { createBrowserRouter } from 'react-router';
 import { Placeholder } from '../components/Placeholder';
 import { AdminSettingsPage } from '../features/admin/AdminSettingsPage';
 import { DashboardPage } from '../features/admin/DashboardPage';
+import { KnowledgePage } from '../features/admin/KnowledgePage';
 import { AdminTicketsPage } from '../features/admin/AdminTicketsPage';
 import { AgentHomePage } from '../features/agent/AgentHomePage';
 import { LoginPage } from '../features/auth/LoginPage';
 import { MentionsPage } from '../features/legal/MentionsPage';
+import { AssistantPage } from '../features/student/AssistantPage';
 import { MyIncidentsPage } from '../features/student/MyIncidentsPage';
 import { ReportPage } from '../features/student/ReportPage';
 import { StudentIncidentPage } from '../features/student/StudentIncidentPage';
@@ -27,7 +29,7 @@ export const router = createBrowserRouter([
           { index: true, element: <MyIncidentsPage /> },
           { path: 'signaler', element: <ReportPage /> },
           { path: 'tickets/:id', element: <StudentIncidentPage /> },
-          { path: 'assistant', element: <Placeholder title="Assistant IA" story="US-19" /> },
+          { path: 'assistant', element: <AssistantPage /> },
         ],
       },
       {
@@ -46,6 +48,7 @@ export const router = createBrowserRouter([
           { path: 'tickets', element: <AdminTicketsPage /> },
           { path: 'tickets/:id', element: <WorkIncidentPage base="/admin/tickets" /> },
           { path: 'reglages', element: <AdminSettingsPage /> },
+          { path: 'base-documentaire', element: <KnowledgePage /> },
         ],
       },
       { path: '*', element: <Placeholder title="Page introuvable" story="404" /> },
