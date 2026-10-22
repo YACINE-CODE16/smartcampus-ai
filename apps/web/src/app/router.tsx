@@ -2,6 +2,7 @@ import { createBrowserRouter } from 'react-router';
 import { Placeholder } from '../components/Placeholder';
 import { LoginPage } from '../features/auth/LoginPage';
 import { MentionsPage } from '../features/legal/MentionsPage';
+import { ReportPage } from '../features/student/ReportPage';
 import { AppLayout } from './AppLayout';
 import { HomeRedirect, RequireRole } from './RequireRole';
 
@@ -17,7 +18,7 @@ export const router = createBrowserRouter([
         element: <RequireRole role="STUDENT" />,
         children: [
           { index: true, element: <Placeholder title="Mes signalements" story="US-08" /> },
-          { path: 'signaler', element: <Placeholder title="Signaler un incident" story="US-03" /> },
+          { path: 'signaler', element: <ReportPage /> },
           { path: 'assistant', element: <Placeholder title="Assistant IA" story="US-19" /> },
         ],
       },

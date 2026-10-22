@@ -1,22 +1,23 @@
-/** Cible d'envoi direct navigateur → stockage (identique pour le front en local et sur AWS). */
-export interface UploadTarget {
-  key: string;
-  url: string;
-  method: 'PUT';
-  headers: Record<string, string>;
-  expiresAt: string;
+import type { Readable } from 'node:stream';
+
+export interface StoredFile {
+  body: Readable;
+  contentType: string;
 }
 
 /**
- * Stockage des photos.
- * - local : disque (`UPLOAD_DIR`), URL signées HMAC servies par l'API.
- * - aws (phase 9) : S3, URL présignées.
- * Les clés suivent le schéma `incident-photos/{userId}/{uuid}.{ext}`.
+ * Stockage des photos (US-04).
+ * - `local` : dossier `UPLOAD_DIR` sur le disque.
+ * - `s3` : bucket `S3_BUCKET` (chiffrement SSE-S3).
+ * Les photos ne sont jamais publiques : l'API les sert après contrôle d'accès.
  */
 export interface FileStorage {
   readonly name: string;
-  createUploadTarget(key: string, contentType: string, maxBytes: number): Promise<UploadTarget>;
-  getDownloadUrl(key: string, ttlSeconds: number): Promise<string>;
-  exists(key: string): Promise<boolean>;
+  put(key: string, body: Buffer, contentType: string): Promise<void>;
+  /** `null` si le fichier n'existe pas. */
+  get(key: string): Promise<StoredFile | null>;
   delete(key: string): Promise<void>;
 }
+
+/** Clés acceptées : `incidents/<uuid>.<jpg|png>` (empêche toute traversée de chemin). */
+export const FILE_KEY_PATTERN = /^incidents\/[0-9a-f-]{36}\.(jpg|png)$/;

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   allowedTransitions,
+  buildTitle,
   canTake,
   canView,
   computePriority,
@@ -28,6 +29,12 @@ describe('formatTicketNumber', () => {
     expect(formatTicketNumber(7)).toBe('SC-0007');
     expect(formatTicketNumber(12345)).toBe('SC-12345');
   });
+});
+
+describe('buildTitle', () => {
+  it('uses the short building name', () =>
+    expect(buildTitle('Réseau', 'Bâtiment A – Enseignement', 'A102')).toBe('Réseau – A102 (Bâtiment A)'));
+  it('keeps names without a dash', () => expect(buildTitle('Salle', 'Bibliothèque', 'Box 2')).toBe('Salle – Box 2 (Bibliothèque)'));
 });
 
 describe('computePriority', () => {

@@ -19,8 +19,10 @@ export function formatTicketNumber(n: number): string {
   return `SC-${String(n).padStart(4, '0')}`;
 }
 
+/** Titre généré (D14) : « Réseau – A102 (Bâtiment A) ». Le nom court du bâtiment précède « – ». */
 export function buildTitle(categoryLabel: string, buildingName: string, room: string): string {
-  return `${categoryLabel} – ${buildingName} ${room}`.trim();
+  const shortBuilding = buildingName.split(' – ')[0];
+  return `${categoryLabel} – ${room} (${shortBuilding})`;
 }
 
 export function computePriority(urgency: Urgency, categoryAutoPriority: Priority | null): Priority {

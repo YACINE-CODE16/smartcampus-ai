@@ -5,6 +5,7 @@ import type { Container } from '../container';
 import { DomainError } from '../domain/errors';
 import { authRouter } from './routes/auth';
 import { healthRouter } from './routes/health';
+import { incidentsRouter } from './routes/incidents';
 
 const STATUS_BY_CODE: Record<DomainError['code'], number> = {
   VALIDATION: 400,
@@ -36,6 +37,7 @@ export function createApp(container: Container) {
 
   app.use('/api/health', healthRouter(container));
   app.use('/api/auth', authRouter(container));
+  app.use('/api', incidentsRouter(container));
 
   app.use('/api', (_req, res) => {
     const body: ApiError = { error: 'NOT_FOUND', message: 'Route inconnue.' };
