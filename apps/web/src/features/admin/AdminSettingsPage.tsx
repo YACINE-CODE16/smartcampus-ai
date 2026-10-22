@@ -3,6 +3,7 @@ import { SETTINGS, type CategoryDto } from '@smartcampus/shared';
 import { ApiRequestError, api } from '../../lib/api';
 import { useI18n } from '../../lib/i18n';
 import { useApi } from '../../lib/useApi';
+import { TableWrap } from '../../components/TableWrap';
 
 /** Ligne d'une catégorie : délai cible modifiable, enregistré à la demande. */
 function TargetRow({ c, onSaved }: { c: CategoryDto; onSaved(): void }) {
@@ -74,7 +75,7 @@ export function AdminSettingsPage() {
       </p>
       {error && <p className="alert alert--error">{error.message}</p>}
       {data && (
-        <div className="card table-wrap">
+        <TableWrap label={t('Délais cibles par catégorie', 'Target times per category')}>
           <table className="table">
             <thead>
               <tr>
@@ -91,7 +92,7 @@ export function AdminSettingsPage() {
               ))}
             </tbody>
           </table>
-        </div>
+        </TableWrap>
       )}
     </section>
   );

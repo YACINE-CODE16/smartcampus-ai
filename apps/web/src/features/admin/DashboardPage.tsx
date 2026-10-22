@@ -14,6 +14,7 @@ import { useI18n } from '../../lib/i18n';
 import { useLive } from '../../lib/live';
 import { useApi } from '../../lib/useApi';
 import { ChartCard, HBarChart, TrendChart } from './charts';
+import { TableWrap } from '../../components/TableWrap';
 
 const PERIOD_LABELS: Record<DashboardPeriod, { fr: string; en: string }> = {
   '7d': { fr: '7 jours', en: '7 days' },
@@ -162,7 +163,7 @@ export function DashboardPage() {
             {/* US-33 */}
             <section className="card">
               <h2>{t('Charge par agent', 'Workload per agent')}</h2>
-              <div className="table-wrap">
+              <TableWrap card={false} label={t('Charge par agent', 'Workload per agent')}>
                 <table className="table table--compact">
                   <thead>
                     <tr>
@@ -189,7 +190,7 @@ export function DashboardPage() {
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </TableWrap>
             </section>
 
             {/* US-32 */}

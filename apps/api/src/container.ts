@@ -9,6 +9,7 @@ import { LocalKnowledgeBase } from './adapters/local-knowledge-base';
 import { MockAiAssistant } from './adapters/mock-assistant';
 import { S3FileStorage } from './adapters/s3-storage';
 import { SesMailer } from './adapters/ses-mailer';
+import { LoginLimiter } from './http/security';
 import { SessionService } from './http/session';
 import type { AiAssistant } from './ports/ai-assistant';
 import type { AuthProvider } from './ports/auth';
@@ -36,6 +37,7 @@ export interface Container {
   prisma: PrismaClient;
   auth: AuthProvider;
   sessions: SessionService;
+  loginLimiter: LoginLimiter;
   storage: FileStorage;
   mailer: Mailer;
   hub: LiveHub;
@@ -83,6 +85,7 @@ export function createContainer(env: Env): Container {
     prisma,
     auth,
     sessions: new SessionService(env),
+    loginLimiter: new LoginLimiter(),
     storage,
     mailer,
     hub,
@@ -95,7 +98,7 @@ export function createContainer(env: Env): Container {
     exports: new ExportService(prisma, audit),
     assistant: new AssistantService(prisma, kb, ai, mock),
     knowledge: new KnowledgeAdminService(prisma),
-    users: new UserAdminService(prisma, audit),
+    users: new UserAdminService(prisma, audit, storage),
     adapterNames: { database: 'postgresql', auth: auth.name, storage: storage.name, mail: mailer.name, knowledgeBase: kb.name, ai: ai.name },
     dispose: () => prisma.$disconnect(),
   };

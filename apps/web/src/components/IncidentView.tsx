@@ -100,7 +100,7 @@ export function IncidentView({ incident: x, actions, aside, showOwner = false, l
             )}
           </dl>
           <h3 className="incident__subtitle">{t('Description', 'Description')}</h3>
-          <p className="incident__description">{x.description}</p>
+          <p className="incident__description">{text(x.description)}</p>
           {x.rejectionReason && (
             <p className="alert alert--error">
               <strong>{t('Motif du rejet :', 'Rejection reason:')}</strong> {text(x.rejectionReason)}

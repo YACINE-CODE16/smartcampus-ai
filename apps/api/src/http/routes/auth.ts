@@ -23,10 +23,14 @@ const DEMO_EMAILS = [
 export function authRouter(container: Container): Router {
   const router = Router();
 
-  router.post('/login', async (req, res) => {
+  router.post('/login', container.loginLimiter.guard(), async (req, res) => {
     const { email, password } = parseBody(loginSchema, req.body);
     const user = await container.auth.authenticate(email, password);
-    if (!user) throw new UnauthorizedError(bi('Email ou mot de passe incorrect.', 'Incorrect email or password.'));
+    if (!user) {
+      container.loginLimiter.fail(req);
+      throw new UnauthorizedError(bi('Email ou mot de passe incorrect.', 'Incorrect email or password.'));
+    }
+    container.loginLimiter.succeed(req);
     await container.sessions.issue(res, user);
     res.json(user);
   });

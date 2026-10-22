@@ -1,4 +1,4 @@
-import { OPEN_STATUSES, type AgentDto, type AlertsResponse, type CategoryDto } from '@smartcampus/shared';
+import { OPEN_STATUSES, type AgentDto, type AlertsResponse, type AuditAction, type AuditEntryDto, type CategoryDto } from '@smartcampus/shared';
 import type { PrismaClient } from '../db';
 import { NotFoundError } from '../domain/errors';
 import { incidentInclude, toSummary } from './incidents';
@@ -56,5 +56,31 @@ export class AdminService {
     const exists = await this.prisma.category.findUnique({ where: { id: categoryId }, select: { id: true } });
     if (!exists) throw new NotFoundError();
     return this.prisma.category.update({ where: { id: categoryId }, data: { targetHours }, select: categorySelect });
+  }
+
+  /** US-37 : 200 dernières entrées du journal d'audit, filtrables par action. */
+  async auditLog(action?: AuditAction): Promise<AuditEntryDto[]> {
+    const rows = await this.prisma.auditLog.findMany({
+      where: action ? { action } : {},
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+      include: { actor: { select: { id: true, name: true } } },
+    });
+    // Le nom de l'utilisateur ciblé est résolu à la lecture (jamais stocké : il disparaît avec une anonymisation).
+    const userIds = rows.filter((r) => r.targetType === 'user').map((r) => r.targetId);
+    const users = new Map(
+      (await this.prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true } })).map((u) => [u.id, u.name]),
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      action: r.action,
+      actor: r.actor,
+      actorRole: r.actorRole,
+      targetType: r.targetType,
+      targetId: r.targetId,
+      targetLabel: r.targetType === 'user' ? (users.get(r.targetId) ?? null) : null,
+      details: r.details as Record<string, unknown>,
+      createdAt: r.createdAt.toISOString(),
+    }));
   }
 }

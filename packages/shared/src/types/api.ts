@@ -281,3 +281,20 @@ export interface KbDocumentDto {
   language: Lang;
   updatedAt: ISODate;
 }
+
+/** US-37 : actions sensibles journalisées. */
+export const AUDIT_ACTIONS = ['ROLE_CHANGE', 'REJECT', 'MERGE', 'DATA_DELETION', 'EXPORT'] as const;
+export type AuditAction = (typeof AUDIT_ACTIONS)[number];
+
+export interface AuditEntryDto {
+  id: string;
+  action: AuditAction;
+  actor: PersonRef | null;
+  actorRole: ActorRole;
+  targetType: string;
+  targetId: string;
+  /** Nom actuel de l'utilisateur ciblé (« Utilisateur supprimé » après US-34). */
+  targetLabel: string | null;
+  details: Record<string, unknown>;
+  createdAt: ISODate;
+}

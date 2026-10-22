@@ -1,11 +1,12 @@
-import { useState, type ReactNode } from 'react';
+import { useState, type FormEvent } from 'react';
 import { ROLE_LABELS, ROLES, type Role } from '@smartcampus/shared';
 import { ApiRequestError, api, query } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { useI18n } from '../../lib/i18n';
 import { useApi } from '../../lib/useApi';
+import { TableWrap } from '../../components/TableWrap';
 
-export interface UserRow {
+interface UserRow {
   id: string;
   name: string;
   email: string;
@@ -14,8 +15,60 @@ export interface UserRow {
   tickets: number;
 }
 
-/** Ligne utilisateur : changement de rôle (US-02) et emplacement des actions RGPD (US-34). */
-function UserLine({ u, self, onChanged, extra }: { u: UserRow; self: boolean; onChanged(): void; extra?: (u: UserRow) => ReactNode }) {
+/** US-34 : suppression des données d'un étudiant, confirmée par la saisie de son email. */
+function EraseControl({ u, onDone }: { u: UserRow; onDone(): void }) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function erase(ev: FormEvent) {
+    ev.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await api.post(`/admin/users/${u.id}/erase`, { confirmEmail: email });
+      onDone();
+    } catch (err) {
+      setError(err instanceof ApiRequestError ? (Object.values(err.fields)[0] ?? err.message) : t('Échec', 'Failed'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button type="button" className="btn btn--danger-outline btn--sm" onClick={() => setOpen(true)}>
+        {t('Supprimer ses données', 'Erase their data')}
+      </button>
+    );
+  }
+  return (
+    <form className="erase" onSubmit={erase}>
+      <p className="erase__warn">
+        {t(
+          'Action irréversible : compte anonymisé, descriptions, photos, commentaires, notifications et échanges avec l’assistant supprimés. Les tickets restent dans les statistiques.',
+          'Irreversible: account anonymised; descriptions, photos, comments, notifications and assistant exchanges deleted. Tickets remain in statistics.',
+        )}
+      </p>
+      <label htmlFor={`erase-${u.id}`}>{t('Pour confirmer, saisissez l’email du compte :', 'To confirm, type the account email:')}</label>
+      <input id={`erase-${u.id}`} type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" required />
+      {error && <span className="field__error">{error}</span>}
+      <div className="work__form-actions">
+        <button type="submit" className="btn btn--danger btn--sm" disabled={busy || !email}>
+          {t('Supprimer définitivement', 'Erase permanently')}
+        </button>
+        <button type="button" className="btn btn--ghost btn--sm" onClick={() => setOpen(false)}>
+          {t('Annuler', 'Cancel')}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** Ligne utilisateur : changement de rôle (US-02) et suppression des données (US-34). */
+function UserLine({ u, self, onChanged }: { u: UserRow; self: boolean; onChanged(): void }) {
   const { t, label } = useI18n();
   const [role, setRole] = useState<Role>(u.role);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -64,13 +117,13 @@ function UserLine({ u, self, onChanged, extra }: { u: UserRow; self: boolean; on
         )}
         {msg && <span className={msg.ok ? 'ok' : 'field__error'}>{msg.text}</span>}
       </td>
-      {extra && <td>{extra(u)}</td>}
+      <td>{u.role === 'STUDENT' && !u.anonymized && !self ? <EraseControl u={u} onDone={onChanged} /> : <span className="muted">—</span>}</td>
     </tr>
   );
 }
 
 /** US-02 : comptes et rôles (attribution réservée à l'administration, tracée dans le journal d'audit). */
-export function UsersPage({ extra }: { extra?: (u: UserRow, reload: () => void) => ReactNode }) {
+export function UsersPage() {
   const { t } = useI18n();
   const { user } = useAuth();
   const [q, setQ] = useState('');
@@ -91,23 +144,23 @@ export function UsersPage({ extra }: { extra?: (u: UserRow, reload: () => void) 
       </div>
       {error && <p className="alert alert--error">{error.message}</p>}
       {data && (
-        <div className="card table-wrap">
+        <TableWrap label={t('Utilisateurs', 'Users')}>
           <table className="table">
             <thead>
               <tr>
                 <th scope="col">{t('Utilisateur', 'User')}</th>
                 <th scope="col">{t('Tickets', 'Tickets')}</th>
                 <th scope="col">{t('Rôle', 'Role')}</th>
-                {extra && <th scope="col">{t('Données personnelles', 'Personal data')}</th>}
+                <th scope="col">{t('Données personnelles (RGPD)', 'Personal data (GDPR)')}</th>
               </tr>
             </thead>
             <tbody>
               {data.map((u) => (
-                <UserLine key={u.id} u={u} self={u.id === user?.id} onChanged={reload} extra={extra ? (x) => extra(x, reload) : undefined} />
+                <UserLine key={u.id} u={u} self={u.id === user?.id} onChanged={reload} />
               ))}
             </tbody>
           </table>
-        </div>
+        </TableWrap>
       )}
     </section>
   );

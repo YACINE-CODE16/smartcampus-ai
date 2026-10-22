@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { bi, DASHBOARD_PERIODS, GRANULARITIES, ROLES, SETTINGS } from '@smartcampus/shared';
+import { AUDIT_ACTIONS, bi, DASHBOARD_PERIODS, GRANULARITIES, ROLES, SETTINGS } from '@smartcampus/shared';
 import type { Container } from '../../container';
 import { NotFoundError } from '../../domain/errors';
 import { requestLang } from '../lang';
@@ -60,6 +60,20 @@ export function adminRouter(container: Container): Router {
     if (!id.success) throw new NotFoundError();
     const { role } = parseBody(z.object({ role: z.enum(ROLES, { error: bi('Rôle inconnu', 'Unknown role') }) }), req.body);
     res.json(await container.users.setRole(currentUser(req), id.data, role));
+  });
+
+  /** US-34 : suppression des données d'un étudiant (confirmation par saisie de son email). */
+  router.post('/admin/users/:id/erase', async (req, res) => {
+    const id = z.uuid().safeParse(req.params.id);
+    if (!id.success) throw new NotFoundError();
+    const { confirmEmail } = parseBody(z.object({ confirmEmail: z.string({ error: bi('Email requis', 'Email required') }) }), req.body);
+    res.json(await container.users.erase(currentUser(req), id.data, confirmEmail));
+  });
+
+  /** US-37 : journal des actions sensibles (lecture seule, aucune route de modification). */
+  router.get('/admin/audit', async (req, res) => {
+    const { action } = parseBody(z.object({ action: z.enum(AUDIT_ACTIONS).optional() }), req.query);
+    res.json(await container.admin.auditLog(action));
   });
 
   router.get('/admin/categories', async (_req, res) => {

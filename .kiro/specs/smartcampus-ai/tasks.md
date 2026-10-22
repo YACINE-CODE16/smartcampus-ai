@@ -36,11 +36,11 @@ Un commit par bloc. Les tests existants doivent passer ; chaque nouvelle règle 
 - [x] d4 Confirmer / contester (US-11) ; notation (US-12)
 
 ## Bloc e — Transverses (US-34 à US-38)
-- [ ] e1 Suppression des données d'un étudiant (US-34)
-- [ ] e2 Accessibilité / responsive (US-35)
-- [ ] e3 En-têtes de sécurité, limite de connexion (US-36)
-- [ ] e4 Journal d'audit (US-37)
-- [ ] e5 FR/EN complet + assistant dans la langue de la question (US-38)
+- [x] e1 Suppression des données d'un étudiant (US-34)
+- [x] e2 Accessibilité / responsive (US-35)
+- [x] e3 En-têtes de sécurité, limite de connexion (US-36)
+- [x] e4 Journal d'audit (US-37)
+- [x] e5 FR/EN complet + assistant dans la langue de la question (US-38)
 
 ## Bloc f — Déploiement
 - [ ] f1 Dockerfiles api et web, `docker-compose.prod.yml` (Traefik)

@@ -1,6 +1,7 @@
 import { createBrowserRouter } from 'react-router';
-import { Placeholder } from '../components/Placeholder';
+import { NotFoundPage } from '../components/NotFoundPage';
 import { AdminSettingsPage } from '../features/admin/AdminSettingsPage';
+import { AuditPage } from '../features/admin/AuditPage';
 import { DashboardPage } from '../features/admin/DashboardPage';
 import { KnowledgePage } from '../features/admin/KnowledgePage';
 import { UsersPage } from '../features/admin/UsersPage';
@@ -51,9 +52,10 @@ export const router = createBrowserRouter([
           { path: 'reglages', element: <AdminSettingsPage /> },
           { path: 'base-documentaire', element: <KnowledgePage /> },
           { path: 'utilisateurs', element: <UsersPage /> },
+          { path: 'audit', element: <AuditPage /> },
         ],
       },
-      { path: '*', element: <Placeholder title="Page introuvable" story="404" /> },
+      { path: '*', element: <NotFoundPage /> },
     ],
   },
 ]);

@@ -4,6 +4,7 @@ import { localize, type ApiError } from '@smartcampus/shared';
 import type { Container } from '../container';
 import { DomainError } from '../domain/errors';
 import { requestLang } from './lang';
+import { securityHeaders } from './security';
 import { requireAuth } from './middlewares/auth';
 import { adminRouter } from './routes/admin';
 import { assistantRouter, knowledgeRouter } from './routes/assistant';
@@ -28,6 +29,7 @@ export function createApp(container: Container) {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', 1); // derrière Traefik en production
+  app.use(securityHeaders(container.env.COOKIE_SECURE));
   app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
 
