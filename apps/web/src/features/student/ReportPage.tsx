@@ -41,8 +41,9 @@ export function ReportPage() {
   const prefill = (useLocation().state as { prefill?: ReportPrefill } | null)?.prefill;
   const { data: refs, error: refsError } = useApi<Referentials>('/referentials');
 
-  const [categoryId, setCategoryId] = useState('');
-  const [buildingId, setBuildingId] = useState('');
+  // `null` = pas encore choisi : on retombe alors sur la valeur pré-remplie (si elle existe).
+  const [chosenCategoryId, setCategoryId] = useState<string | null>(null);
+  const [chosenBuildingId, setBuildingId] = useState<string | null>(null);
   const [room, setRoom] = useState(prefill?.room ?? '');
   const [description, setDescription] = useState(prefill?.description ?? '');
   const [urgency, setUrgency] = useState<Urgency>('NORMALE');
@@ -53,18 +54,25 @@ export function ReportPage() {
   const [created, setCreated] = useState<IncidentSummary | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
-  // Pré-remplissage par slug/code dès que les référentiels sont chargés.
-  useEffect(() => {
-    if (!refs || !prefill) return;
-    const cat = refs.categories.find((c) => c.slug === prefill.categorySlug);
-    const bld = refs.buildings.find((b) => b.code === prefill.buildingCode);
-    if (cat) setCategoryId(cat.id);
-    if (bld) setBuildingId(bld.id);
-  }, [refs, prefill]);
+  // Pré-remplissage par slug/code, résolu dès que les référentiels sont chargés.
+  const categoryId = chosenCategoryId ?? refs?.categories.find((c) => c.slug === prefill?.categorySlug)?.id ?? '';
+  const buildingId = chosenBuildingId ?? refs?.buildings.find((b) => b.code === prefill?.buildingCode)?.id ?? '';
 
   useEffect(() => () => void (preview && URL.revokeObjectURL(preview)), [preview]);
 
   const selectedCategory = refs?.categories.find((c) => c.id === categoryId);
+
+  /** Efface l'erreur d'un champ dès que l'utilisateur le corrige. */
+  function edit<T>(field: keyof Errors, setter: (v: T) => void) {
+    return (value: T) => {
+      setter(value);
+      setErrors((e) => (e[field] ? { ...e, [field]: undefined } : e));
+    };
+  }
+  const changeCategory = edit('categoryId', setCategoryId);
+  const changeBuilding = edit('buildingId', setBuildingId);
+  const changeRoom = edit('room', setRoom);
+  const changeDescription = edit('description', setDescription);
 
   function onPhoto(ev: ChangeEvent<HTMLInputElement>) {
     const file = ev.target.files?.[0] ?? null;
@@ -160,7 +168,7 @@ export function ReportPage() {
                   id={i === 0 ? 'f-categoryId' : undefined}
                   value={c.id}
                   checked={categoryId === c.id}
-                  onChange={() => setCategoryId(c.id)}
+                  onChange={() => changeCategory(c.id)}
                 />
                 <span className="chip__label">{c.label}</span>
                 <span className="chip__help">{c.description}</span>
@@ -181,7 +189,7 @@ export function ReportPage() {
             <select
               id="f-buildingId"
               value={buildingId}
-              onChange={(e) => setBuildingId(e.target.value)}
+              onChange={(e) => changeBuilding(e.target.value)}
               aria-invalid={!!errors.buildingId}
               aria-describedby={errors.buildingId ? 'e-buildingId' : undefined}
             >
@@ -203,7 +211,7 @@ export function ReportPage() {
               value={room}
               maxLength={SETTINGS.room.max}
               placeholder="ex. A102, hall, 2e étage"
-              onChange={(e) => setRoom(e.target.value)}
+              onChange={(e) => changeRoom(e.target.value)}
               aria-invalid={!!errors.room}
               aria-describedby={errors.room ? 'e-room' : undefined}
             />
@@ -220,7 +228,7 @@ export function ReportPage() {
             value={description}
             maxLength={SETTINGS.description.max}
             placeholder="Que se passe-t-il ? Depuis quand ?"
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => changeDescription(e.target.value)}
             aria-invalid={!!errors.description}
             aria-describedby={`h-description${errors.description ? ' e-description' : ''}`}
           />

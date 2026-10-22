@@ -8,23 +8,23 @@ Commit à la fin de chaque étape. Les IDs renvoient à `requirements.md`.
 ## Ce soir (jeudi 22/10) — en local
 
 ### Étape 1 — PostgreSQL + auth (US-01)  ⏸ point de test PO après l'étape 3
-- [ ] 1.1 `docker-compose.yml` (PostgreSQL 16) ; Prisma → `@prisma/adapter-pg` ; suppression de SQLite
-- [ ] 1.2 Schéma complet (User, Category, Building, Incident, IncidentEvent, FaqEntry) + migration initiale
-- [ ] 1.3 Configuration partagée : rôles `STUDENT/AGENT/ADMIN`, statuts + transitions, urgences/priorités ; règles pures + tests Vitest
-- [ ] 1.4 Seed de base : 5 comptes, catégories, 5 bâtiments, FAQ (20)
-- [ ] 1.5 `LocalAuthProvider` (scrypt + JWT cookie), routes `/api/auth/*`, `requireAuth` / `requireRole`
-- [ ] 1.6 Front : React Router, page « Connexion école » (+ comptes de démo), garde de rôle, layouts des 3 espaces
+- [x] 1.1 `docker-compose.yml` (PostgreSQL 16) ; Prisma → `@prisma/adapter-pg` ; suppression de SQLite
+- [x] 1.2 Schéma complet (User, Category, Building, Incident, IncidentEvent, FaqEntry) + migration initiale
+- [x] 1.3 Configuration partagée : rôles `STUDENT/AGENT/ADMIN`, statuts + transitions, urgences/priorités ; règles pures + tests Vitest
+- [x] 1.4 Seed de base : 5 comptes, catégories, 5 bâtiments, FAQ (20)
+- [x] 1.5 `LocalAuthProvider` (scrypt + JWT cookie), routes `/api/auth/*`, `requireAuth` / `requireRole`
+- [x] 1.6 Front : React Router, page « Connexion école » (+ comptes de démo), garde de rôle, layouts des 3 espaces
 
 ### Étape 2 — Signalement (US-03/04/05)
-- [ ] 2.1 Port `FileStorage` + `LocalFileStorage` + `S3FileStorage`
-- [ ] 2.2 `POST /api/incidents` (multipart, validation zod, JPG/PNG ≤ 10 Mo, priorité, événement initial) + `GET /api/referentials`
-- [ ] 2.3 Formulaire mobile-first (type, bâtiment, salle, description, urgence, photo + aperçu, mention RGPD) + confirmation `SC-xxxx`
+- [x] 2.1 Port `FileStorage` + `LocalFileStorage` + `S3FileStorage`
+- [x] 2.2 `POST /api/incidents` (multipart, validation zod, JPG/PNG ≤ 10 Mo, priorité, événement initial) + `GET /api/referentials`
+- [x] 2.3 Formulaire mobile-first (type, bâtiment, salle, description, urgence, photo + aperçu, mention RGPD) + confirmation `SC-xxxx`
 
 ### Étape 3 — Suivi (US-08/09)
-- [ ] 3.1 `GET /api/incidents` filtré par R1, `GET /api/incidents/:id` (+ historique), `GET /api/incidents/:id/photo`
-- [ ] 3.2 « Mes signalements » + page détail avec timeline
-- [ ] 3.3 Tests d'accès (401/403/404 par rôle)
-- [ ] **⏸ Arrêt : test PO**
+- [x] 3.1 `GET /api/incidents` filtré par R1, `GET /api/incidents/:id` (+ historique), `GET /api/incidents/:id/photo`
+- [x] 3.2 « Mes signalements » + page détail avec timeline
+- [x] 3.3 Tests d'accès (401/403/404 par rôle)
+- [ ] **⏸ Arrêt : test PO** ← on en est là
 
 ### Étape 4 — Traitement agent/admin (US-13/14) + règles Sécurité et 24 h
 - [ ] 4.1 `assign`, `take` (conditionnel), `transition` (table partagée) + tests

@@ -6,7 +6,8 @@ export function StatusBadge({ status }: { status: IncidentStatus }) {
 
 export function PriorityBadge({ priority }: { priority: Priority }) {
   return (
-    <span className={`badge badge--prio-${priority.toLowerCase()}`}>
+    <span className={`badge badge--prio-${priority.toLowerCase()}`} title="Priorité">
+      <span className="sr-only">Priorité : </span>
       {priority === 'CRITIQUE' ? '⚠ ' : ''}
       {PRIORITY_LABELS[priority]}
     </span>

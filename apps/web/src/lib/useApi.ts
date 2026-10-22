@@ -18,6 +18,8 @@ export function useApi<T>(path: string | null): ApiResource<T> {
   useEffect(() => {
     if (path === null) return;
     let cancelled = false;
+    // Synchronisation avec une ressource externe (l'API) : l'indicateur de chargement doit suivre la requête.
+    // oxlint-disable-next-line react/set-state-in-effect
     setLoading(true);
     api
       .get<T>(path)
