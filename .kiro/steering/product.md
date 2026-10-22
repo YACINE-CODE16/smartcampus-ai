@@ -9,21 +9,21 @@ inclusion: always
 ## Problème
 Les incidents du campus sont dispersés (mails, oral, papier). L'étudiant n'a aucun suivi, l'administration aucune visibilité.
 
+## Contexte
+Workshop Capgemini × ESIEA (1,5 jour). Réalisation le vendredi 23/10 de 10h40 à 14h30, démo juste après : **MVP testable, démontrable, déployé sur AWS**. Priorité absolue aux user stories Must (voir `requirements.md`).
+
 ## Cibles
-- **Étudiants** : signalent, suivent, notent, posent des questions à l'assistant.
-- **Techniciens / agents de maintenance** : traitent les incidents.
+- **Étudiants** : signalent, suivent, posent des questions à l'assistant.
+- **Agents techniques** : traitent les tickets.
 - **Administration** : assigne, pilote par la donnée, gère la configuration.
 
 ## Valeur
 Gain de temps, transparence, pilotage par la donnée.
 
-## KPIs mesurés dans l'application
-| KPI | Définition | Objectif |
-|---|---|---|
-| Délai moyen de résolution | moyenne de `resolvedAt - createdAt` sur les incidents résolus/fermés | -30 % |
-| Taux d'adoption | étudiants actifs (≥ 1 signalement ou conversation sur 30 j) / étudiants inscrits ; signalements par semaine | en hausse |
-| % résolu par l'IA | conversations `helpful = true` ET `ticketCreated = false` / conversations ayant reçu un feedback | en hausse |
-| Satisfaction | moyenne des notes 1–5 (+ commentaires) | ≥ 4/5 |
+## KPIs du dashboard (US-28/29/30)
+- Tickets par statut, par catégorie, par période et par bâtiment.
+- Délai moyen de résolution, taux de résolution, taux de réouverture.
+- Tickets critiques ouverts (Sécurité) et tickets en retard (> 24 h sans prise en charge).
 
 ## Principes produit
 - Mobile-first : un signalement en < 2 min depuis un téléphone, 3 champs obligatoires maximum.
@@ -31,10 +31,6 @@ Gain de temps, transparence, pilotage par la donnée.
 - Transparence : l'étudiant voit toujours où en est sa demande et qui a fait quoi.
 - L'IA n'invente jamais : si elle ne sait pas, elle le dit et propose un signalement pré-rempli.
 - Ordre de construction : signalement + suivi → pilotage → assistant IA.
-- Version 100 % locale d'abord (phases 0 à 8), migration AWS ensuite (phase 9).
 
 ## Périmètre
-- **Must** : auth + rôles, signalement (catégorie, lieu, description, photo), suivi statut + historique, traitement technicien, tableau de bord admin.
-- **Should** : assistant IA sur la FAQ, notifications in-app + email.
-- **Could** (préparé, non développé sans accord du PO) : suggestion IA d'urgence/catégorie, statistiques avancées.
-- **Won't** : app mobile native, intégrations GLPI / ServiceNow / Teams.
+Défini par les user stories de la BA : Must = MVP de la démo, Should si le temps le permet, Could documentées, Won't (vrai SSO, emails, export PDF, RGAA complet).

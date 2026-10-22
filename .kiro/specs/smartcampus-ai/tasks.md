@@ -1,96 +1,57 @@
-# Plan d'implémentation — SmartCampus AI
+# Plan d'implémentation — SmartCampus AI (workshop)
 
-Chaque phase se termine par : résumé au PO, procédure de test, commit git, attente du « OK ».
-Phases 0 à 8 : **100 % local**, sans AWS. Phase 9 : migration AWS.
-Les références `_Exigences : x.y_` renvoient à `requirements.md`.
+Commit à la fin de chaque étape. Les IDs renvoient à `requirements.md`.
 
-## Phase 0 — Spec et setup
-- [x] 0.1 `requirements.md`, `design.md`, `tasks.md`
-- [x] 0.2 `.kiro/steering/` (product, business-rules, tech)
-- [x] 0.3 Prérequis : Node ≥ 20.12, npm, git
-- [x] 0.4 Monorepo npm workspaces : `apps/web` (React + Vite), `apps/api` (Express + TS), `packages/shared`
-- [x] 0.5 Prisma 7 + SQLite (adapter better-sqlite3), `GET /api/health` avec contrôle de la base
-- [x] 0.6 Ports : `AuthProvider`, `Repositories` + `UnitOfWork`, `FileStorage`, `Mailer`, `AiAssistant` + `KnowledgeProvider`, `Scheduler`, `RealtimePublisher` ; racine de composition `container.ts`
-- [x] 0.7 Configuration métier et types partagés (`packages/shared`)
-- [x] 0.8 Test : `npm run dev` lance le front et l'API, la page d'accueil s'affiche avec « API connectée »
+## Étape 0 — Setup (fait)
+- [x] Monorepo `apps/web`, `apps/api`, `packages/shared` ; specs Kiro et steering
 
-## Phase 1 — Authentification et rôles
-- [ ] 1.1 Modèles `User` / `UserRole` + migration ; `npm run setup` — _Exigences : 1.3_
-- [ ] 1.2 Adapter `OutboxMailer` (console + `.eml`) — _Exigences : 1.1_
-- [ ] 1.3 Adapter `LocalJwtAuthProvider` (scrypt, JWT, code de vérification, rôles) — _Exigences : 1.1, 1.2_
-- [ ] 1.4 Routes `/api/auth/*`, middlewares `requireAuth` / `requireRole`, cookie httpOnly — _Exigences : 22.2_
-- [ ] 1.5 Écrans connexion / inscription / vérification en français — _Exigences : 1.6_
-- [ ] 1.6 `authClient`, `useCurrentUser`, `RoleGuard`, redirection par rôle, layouts des 3 espaces — _Exigences : 1.4, 1.5_
-- [ ] 1.7 Script `npm run set-role -- <email> <ROLE>` (passe par `AuthProvider`) + doc — _Exigences : 2.1–2.3_
-- [ ] 1.8 Page publique `/mentions` (v1) — _Exigences : 24.1_
-- [ ] 1.9 Vitest à la racine + tests de l'adapter d'auth
-- [ ] 1.10 Test PO : un compte de chaque rôle arrive sur le bon espace ; commit
+## Ce soir (jeudi 22/10) — en local
 
-## Phase 2 — Signaler un incident
-- [ ] 2.1 `packages/shared/src/domain/incident.ts` (`allowedTransitions`, `canTransition`, `buildTitle`, `trackingNumber`) + tests
-- [ ] 2.2 Modèles `Incident`, `IncidentEvent`, `Category` + migration + catégories par défaut — _Exigences : 14.3_
-- [ ] 2.3 Repositories Prisma + `UnitOfWork`
-- [ ] 2.4 Adapter `LocalDiskFileStorage` (URL signées HMAC) + routes fichiers — _Exigences : 4.2_
-- [ ] 2.5 `IncidentWorkflow.report` + `POST /api/incidents` — _Exigences : 3.3, 3.5_
-- [ ] 2.6 Formulaire mobile-first (3 champs obligatoires, urgence, photo, mention RGPD, validation) — _Exigences : 3.1–3.7, 4.1, 4.3, 4.4_
-- [ ] 2.7 Écran de confirmation avec numéro de suivi
-- [ ] 2.8 Test PO : signalement avec photo en < 2 min ; commit
+### Étape 1 — PostgreSQL + auth (US-01)  ⏸ point de test PO après l'étape 3
+- [ ] 1.1 `docker-compose.yml` (PostgreSQL 16) ; Prisma → `@prisma/adapter-pg` ; suppression de SQLite
+- [ ] 1.2 Schéma complet (User, Category, Building, Incident, IncidentEvent, FaqEntry) + migration initiale
+- [ ] 1.3 Configuration partagée : rôles `STUDENT/AGENT/ADMIN`, statuts + transitions, urgences/priorités ; règles pures + tests Vitest
+- [ ] 1.4 Seed de base : 5 comptes, catégories, 5 bâtiments, FAQ (20)
+- [ ] 1.5 `LocalAuthProvider` (scrypt + JWT cookie), routes `/api/auth/*`, `requireAuth` / `requireRole`
+- [ ] 1.6 Front : React Router, page « Connexion école » (+ comptes de démo), garde de rôle, layouts des 3 espaces
 
-## Phase 3 — Suivre sa demande
-- [ ] 3.1 Politique d'accès (règles pures + tests) et `IncidentQueries` — _Exigences : 22.1_
-- [ ] 3.2 « Mes signalements » — _Exigences : 5.1, 5.2_
-- [ ] 3.3 Page détail + photo + timeline — _Exigences : 6.1, 6.2_
-- [ ] 3.4 `reopen` + UI — _Exigences : 7.1–7.3_
-- [ ] 3.5 Modèle `Rating`, `rate` (→ `FERME`) + UI étoiles — _Exigences : 8.1–8.3_
-- [ ] 3.6 Test PO : voir son incident, son historique, le noter ; commit
+### Étape 2 — Signalement (US-03/04/05)
+- [ ] 2.1 Port `FileStorage` + `LocalFileStorage` + `S3FileStorage`
+- [ ] 2.2 `POST /api/incidents` (multipart, validation zod, JPG/PNG ≤ 10 Mo, priorité, événement initial) + `GET /api/referentials`
+- [ ] 2.3 Formulaire mobile-first (type, bâtiment, salle, description, urgence, photo + aperçu, mention RGPD) + confirmation `SC-xxxx`
 
-## Phase 4 — Traitement technicien + admin
-- [ ] 4.1 `take` (écriture conditionnelle), `changeStatus`, `updateUrgency`, `assign` + tests — _Exigences : 9.3, 9.4, 10.1–10.4, 11.3_
-- [ ] 4.2 Routes `technician/queue`, `technician/incidents`, `admin/incidents` (filtres), `admin/technicians` — _Exigences : 9.1, 9.5, 11.1, 11.2, 11.4_
-- [ ] 4.3 Adapter `SseRealtimePublisher` + `GET /api/events` + hook `useRealtime` — _Exigences : 5.3, 6.3, 12.1_
-- [ ] 4.4 Espace technicien : onglets, tri, détail, actions — _Exigences : 9.1, 9.2, 10.1_
-- [ ] 4.5 Espace admin : liste, filtres combinables, assignation — _Exigences : 11.1–11.4_
-- [ ] 4.6 Gestion des catégories — _Exigences : 14.1, 14.2_
-- [ ] 4.7 Adapter `InProcessScheduler` + job `auto-close` (J+7) + `npm run job -- auto-close` — _Exigences : 13.1, 13.2_
-- [ ] 4.8 Test PO : l'admin assigne, le technicien résout, l'étudiant voit le changement sans recharger ; commit
+### Étape 3 — Suivi (US-08/09)
+- [ ] 3.1 `GET /api/incidents` filtré par R1, `GET /api/incidents/:id` (+ historique), `GET /api/incidents/:id/photo`
+- [ ] 3.2 « Mes signalements » + page détail avec timeline
+- [ ] 3.3 Tests d'accès (401/403/404 par rôle)
+- [ ] **⏸ Arrêt : test PO**
 
-## Phase 5 — Tableau de bord admin
-- [ ] 5.1 `packages/shared/src/domain/kpi.ts` + tests — _Exigences : 15.2_
-- [ ] 5.2 `DashboardService` + `GET /api/admin/dashboard` — _Exigences : 15.1, 15.4_
-- [ ] 5.3 Page dashboard : cartes KPI + 4 graphiques Recharts — _Exigences : 15.1, 15.3_
-- [ ] 5.4 `npm run seed` : 60 incidents / 30 jours, historiques, notes, comptes de démo (via les repositories) — _Exigences : 16.1, 16.2_
-- [ ] 5.5 `npm run anonymize` (mécanisme RGPD) — _Exigences : 23.1, 23.2_
-- [ ] 5.6 Test PO : dashboard cohérent après seed ; commit
+### Étape 4 — Traitement agent/admin (US-13/14) + règles Sécurité et 24 h
+- [ ] 4.1 `assign`, `take` (conditionnel), `transition` (table partagée) + tests
+- [ ] 4.2 Espace agent : « Mes tickets » / « Non affectés », détail + actions
+- [ ] 4.3 Espace admin : liste filtrable (statut, catégorie, bâtiment, agent) + affectation
+- [ ] 4.4 SSE `/api/events` ; alerte critique admin (R3) ; calcul « en retard » (R4)
 
-## Phase 6 — Assistant IA (mock)
-- [ ] 6.1 `packages/shared/src/faq/faq.json` (20 Q/R) + `FaqJsonProvider`
-- [ ] 6.2 Modèle `AssistantConversation` (propriétaire seul) — _Exigences : 19.4_
-- [ ] 6.3 Adapter `MockAiAssistant` + `AssistantService` + prompt système Bedrock versionné — _Exigences : 17.1–17.4, 18.1_
-- [ ] 6.4 Page chat + « Ça m'a aidé » / « Créer un signalement » + pré-remplissage — _Exigences : 18.2, 18.3, 19.1, 19.2_
-- [ ] 6.5 KPI IA dans le dashboard — _Exigences : 19.3_
-- [ ] 6.6 Test PO : wifi, « où en est mon signalement ? », question hors FAQ → signalement pré-rempli ; commit
+### Étape 5 — Dashboard (US-28/29/30)
+- [ ] 5.1 KPI purs (délai moyen, taux de résolution, taux de réouverture) + tests
+- [ ] 5.2 `GET /api/admin/dashboard` + page (compteurs par statut, catégories, tendance, bâtiments, retards, critiques)
+- [ ] 5.3 Seed des 60 tickets sur 30 jours (2 Sécurité, 3 en retard)
 
-## Phase 7 — Notifications
-- [ ] 7.1 Modèle `Notification` + `NotificationService` (in-app + email via `Mailer`) — _Exigences : 20.2, 21.1, 21.2_
-- [ ] 7.2 Cloche + compteur temps réel (SSE) + marquer lu — _Exigences : 20.1, 20.3_
-- [ ] 7.3 Gabarits d'emails en français
-- [ ] 7.4 Test PO : chaque changement de statut déclenche la bonne notification (in-app + `.eml`) ; commit
+### Étape 6 — Assistant (US-19/21/26)
+- [ ] 6.1 Port `AiAssistant` : `MockAiAssistant` + `BedrockAiAssistant` (Converse, us-east-1) + prompt système
+- [ ] 6.2 `POST /api/assistant/ask` (contexte = FAQ + tickets de l'utilisateur)
+- [ ] 6.3 Page chat : mention IA, sources, ticket pré-rempli → formulaire
 
-## Phase 8 — Démo locale
-- [ ] 8.1 `npm run demo` : réinitialise la base, seed, lance l'app
-- [ ] 8.2 `DEMO.md` : scénario 5 min (3 personas, 4 parcours), comptes de test
-- [ ] 8.3 Push GitHub (dépôt à confirmer avec le PO)
-- [ ] 8.4 Commit final
+### Étape 7 — Livrables de déploiement
+- [ ] 7.1 `apps/api/Dockerfile`, `apps/web/Dockerfile` (nginx), `docker-compose.prod.yml` (Traefik + api + web)
+- [ ] 7.2 `DEPLOY.md` : console AWS pas à pas (EC2, RDS, S3, IAM, groupes de sécurité), variables, Bedrock, coûts, suppression
+- [ ] 7.3 Test local de la stack de production (`docker compose -f docker-compose.prod.yml`) avec PostgreSQL local
 
-## Phase 9 — Migration AWS
-- [ ] 9.1 Arbitrage PO : Amplify Data + Lambdas, ou API dans Lambda derrière API Gateway ; région (eu-west-3 par défaut)
-- [ ] 9.2 Identifiants AWS du PO (profil `smartcampus`) — _action manuelle PO_
-- [ ] 9.3 `adapters/aws/` : Cognito, DynamoDB, S3, SES, Bedrock, EventBridge, AppSync ; `ADAPTERS_MODE=aws`
-- [ ] 9.4 `authClient` et `useRealtime` côté web pour AWS
-- [ ] 9.5 Tests des services contre les adapters AWS
-- [ ] 9.6 Amplify Hosting connecté à GitHub (`main`) — _Exigences : 26.1_
-- [ ] 9.7 Vérification en production, `DEMO.md` mis à jour (URL), coûts attendus et procédure de suppression
+## Demain (vendredi 23/10, 10h40–14h30)
+- [ ] 8.1 Déploiement AWS selon `DEPLOY.md` (identifiants du lab)
+- [ ] 8.2 Vérification en production + seed
+- [ ] 8.3 Should, par ordre de valeur pour la démo : US-11, US-17, US-10, US-22, US-06, US-16, US-23, US-25, US-33
+- [ ] 8.4 `DEMO.md` : scénario de 5 min (3 personas), comptes, URL
 
-## Après la phase 8 (sur demande du PO uniquement)
-- [ ] C1 Suggestion IA d'urgence et de catégorie (`TriageSuggester`)
-- [ ] C2 Statistiques avancées
+## Could (documentées, non développées)
+US-02, US-07, US-12, US-15, fusion de doublons, US-18, US-24, US-31, US-32, US-34, US-37, US-38
