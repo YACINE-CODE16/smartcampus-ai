@@ -1,23 +1,19 @@
-/** Rôles applicatifs (groupes Cognito à la migration AWS). */
-export const ROLES = ['STUDENT', 'TECHNICIAN', 'ADMIN'] as const;
+export const ROLES = ['STUDENT', 'AGENT', 'ADMIN'] as const;
 export type Role = (typeof ROLES)[number];
 
-/** Auteur d'une action automatique (fermeture J+7, anonymisation). */
+/** Auteur d'une action automatique (ex. contrôle des retards). */
 export type ActorRole = Role | 'SYSTEM';
 
 export const ROLE_LABELS: Record<ActorRole, string> = {
   STUDENT: 'Étudiant',
-  TECHNICIAN: 'Technicien',
+  AGENT: 'Agent',
   ADMIN: 'Administrateur',
   SYSTEM: 'Système',
 };
 
-/** Rôle attribué automatiquement à l'inscription. */
-export const DEFAULT_ROLE: Role = 'STUDENT';
-
-/** Un utilisateur multi-rôles voit l'espace du rôle le plus élevé. */
-export const ROLE_PRIORITY: readonly Role[] = ['ADMIN', 'TECHNICIAN', 'STUDENT'];
-
-export function primaryRole(roles: readonly Role[]): Role {
-  return ROLE_PRIORITY.find((r) => roles.includes(r)) ?? DEFAULT_ROLE;
-}
+/** Espace d'accueil de chaque rôle. */
+export const ROLE_HOME: Record<Role, string> = {
+  STUDENT: '/etudiant',
+  AGENT: '/agent',
+  ADMIN: '/admin',
+};

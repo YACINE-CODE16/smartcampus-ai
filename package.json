@@ -17,11 +17,14 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "oxlint",
     "db:migrate": "npm run db:migrate -w @smartcampus/api",
-    "db:studio": "npm run db:studio -w @smartcampus/api"
+    "db:studio": "npm run db:studio -w @smartcampus/api",
+    "test": "vitest run",
+    "seed": "npm run seed -w @smartcampus/api"
   },
   "devDependencies": {
     "concurrently": "^10.0.6",
     "oxlint": "^1.88.0",
-    "typescript": "~5.9.3"
+    "typescript": "~5.9.3",
+    "vitest": "^4.1.12"
   }
 }

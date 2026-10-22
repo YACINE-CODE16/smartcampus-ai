@@ -1,5 +1,5 @@
-// Schéma de la base locale (SQLite). Les modèles sont ajoutés phase par phase
-// (voir .kiro/specs/smartcampus-ai/tasks.md). L'URL est définie dans prisma.config.ts.
+// Schéma PostgreSQL (docker-compose en local, RDS en production).
+// L'URL de connexion est définie dans prisma.config.ts (DATABASE_URL).
 
 generator client {
   provider = "prisma-client"
@@ -7,5 +7,138 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
+}
+
+enum Role {
+  STUDENT
+  AGENT
+  ADMIN
+}
+
+enum ActorRole {
+  STUDENT
+  AGENT
+  ADMIN
+  SYSTEM
+}
+
+enum IncidentStatus {
+  NOUVEAU
+  EN_COURS
+  RESOLU
+  FERME
+  REJETE
+}
+
+enum Urgency {
+  FAIBLE
+  NORMALE
+  HAUTE
+}
+
+enum Priority {
+  FAIBLE
+  NORMALE
+  HAUTE
+  CRITIQUE
+}
+
+enum EventType {
+  CREATED
+  STATUS
+  ASSIGN
+  UPDATE
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String
+  role         Role
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  ownedIncidents    Incident[]      @relation("IncidentOwner")
+  assignedIncidents Incident[]      @relation("IncidentAssignee")
+  events            IncidentEvent[]
+}
+
+model Category {
+  id           String    @id @default(uuid())
+  slug         String    @unique
+  label        String
+  description  String
+  /// Priorité imposée quelle que soit l'urgence ressentie (ex. Sécurité → CRITIQUE).
+  autoPriority Priority?
+  order        Int       @default(0)
+  active       Boolean   @default(true)
+  incidents    Incident[]
+}
+
+model Building {
+  id        String     @id @default(uuid())
+  code      String     @unique
+  name      String
+  order     Int        @default(0)
+  incidents Incident[]
+}
+
+model Incident {
+  id              String         @id @default(uuid())
+  /// Numéro de ticket séquentiel, affiché SC-0001.
+  number          Int            @unique @default(autoincrement())
+  title           String
+  categoryId      String
+  category        Category       @relation(fields: [categoryId], references: [id])
+  buildingId      String
+  building        Building       @relation(fields: [buildingId], references: [id])
+  room            String
+  description     String
+  photoKey        String?
+  urgency         Urgency        @default(NORMALE)
+  priority        Priority
+  status          IncidentStatus @default(NOUVEAU)
+  ownerId         String
+  owner           User           @relation("IncidentOwner", fields: [ownerId], references: [id])
+  assignedToId    String?
+  assignedTo      User?          @relation("IncidentAssignee", fields: [assignedToId], references: [id])
+  reopenCount     Int            @default(0)
+  rejectionReason String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  takenAt         DateTime?
+  resolvedAt      DateTime?
+  closedAt        DateTime?
+  lateNotifiedAt  DateTime?
+  events          IncidentEvent[]
+
+  @@index([ownerId])
+  @@index([assignedToId, status])
+  @@index([createdAt])
+}
+
+model IncidentEvent {
+  id         String          @id @default(uuid())
+  incidentId String
+  incident   Incident        @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  type       EventType
+  fromStatus IncidentStatus?
+  toStatus   IncidentStatus?
+  comment    String?
+  authorId   String?
+  author     User?           @relation(fields: [authorId], references: [id])
+  authorRole ActorRole
+  createdAt  DateTime        @default(now())
+
+  @@index([incidentId, createdAt])
+}
+
+model FaqEntry {
+  id       String   @id @default(uuid())
+  question String
+  answer   String
+  keywords String[]
+  topic    String
+  order    Int      @default(0)
 }

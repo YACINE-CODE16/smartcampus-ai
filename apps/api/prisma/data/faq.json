@@ -1,0 +1,122 @@
+[
+  {
+    "topic": "reseau",
+    "question": "Comment me connecter au wifi du campus ?",
+    "answer": "Connectez-vous au réseau « eduroam » avec votre identifiant école complet (prenom.nom@esiea.fr) et votre mot de passe ENT. Si la connexion échoue : oubliez le réseau sur votre appareil, désactivez le « MAC aléatoire » puis reconnectez-vous. Le réseau « ESIEA-Invites » est réservé aux visiteurs.",
+    "keywords": ["wifi", "wi-fi", "eduroam", "internet", "connexion", "reseau", "connecter", "marche pas", "deconnecte"]
+  },
+  {
+    "topic": "reseau",
+    "question": "J'ai oublié mon mot de passe ENT, que faire ?",
+    "answer": "Rendez-vous sur la page « Mot de passe oublié » de l'ENT et suivez la procédure : un lien de réinitialisation est envoyé sur votre adresse personnelle déclarée à l'inscription. Sans accès à cette adresse, présentez-vous au service informatique (bâtiment C, bureau C012) avec votre carte étudiant.",
+    "keywords": ["mot de passe", "oublie", "ent", "identifiant", "compte", "bloque", "reinitialiser", "login"]
+  },
+  {
+    "topic": "reseau",
+    "question": "Comment accéder aux ressources de l'école depuis chez moi (VPN) ?",
+    "answer": "Installez le client VPN indiqué sur l'ENT (rubrique Informatique > VPN) et connectez-vous avec vos identifiants école. Le VPN donne accès aux licences logicielles et aux serveurs de TP. Les cours et Moodle restent accessibles sans VPN.",
+    "keywords": ["vpn", "distance", "maison", "chez moi", "acces", "serveur", "licence"]
+  },
+  {
+    "topic": "reseau",
+    "question": "Comment obtenir un logiciel sous licence (MATLAB, SolidWorks, suite Office) ?",
+    "answer": "Les logiciels sous licence sont listés sur l'ENT (Informatique > Logiciels). Office 365 est gratuit avec votre compte école. MATLAB et SolidWorks s'installent avec la clé fournie sur cette page et nécessitent le VPN hors campus.",
+    "keywords": ["logiciel", "licence", "matlab", "solidworks", "office", "installer", "word", "excel"]
+  },
+  {
+    "topic": "salle",
+    "question": "Comment réserver une salle pour un travail de groupe ?",
+    "answer": "Les salles de travail en groupe (B101 à B106 et les box de la bibliothèque) se réservent sur l'ENT, rubrique « Réservation de salles », par créneaux de 2 h, jusqu'à 7 jours à l'avance. La réservation doit être confirmée sur place dans les 15 premières minutes.",
+    "keywords": ["reserver", "reservation", "salle", "groupe", "projet", "box", "creneau"]
+  },
+  {
+    "topic": "salle",
+    "question": "Quels sont les horaires d'ouverture des bâtiments ?",
+    "answer": "Les bâtiments d'enseignement sont ouverts du lundi au vendredi de 7h30 à 21h et le samedi de 8h à 13h. La bibliothèque est ouverte de 8h30 à 20h en semaine. En dehors de ces horaires, l'accès se fait uniquement avec une autorisation de l'administration.",
+    "keywords": ["horaire", "heure", "ouverture", "ouvert", "ferme", "batiment", "samedi", "soir"]
+  },
+  {
+    "topic": "salle",
+    "question": "La salle de mon cours est fermée à clé, que faire ?",
+    "answer": "Vérifiez d'abord l'emploi du temps sur l'ENT (un changement de salle a pu être publié). Si la salle est bien la bonne, prévenez l'accueil du bâtiment A (poste 1000) qui envoie un agent avec les clés, et signalez l'incident dans SmartCampus pour garder une trace.",
+    "keywords": ["salle fermee", "ferme a cle", "porte fermee", "cle", "acces salle", "verrouille"]
+  },
+  {
+    "topic": "materiel",
+    "question": "Le vidéoprojecteur ne s'allume pas, que faire ?",
+    "answer": "Vérifiez que la télécommande a des piles et que l'interrupteur mural « Vidéo » est sur ON. Le câble HDMI se trouve dans la boîte au pied du bureau ; sélectionnez la source « HDMI 1 ». Si rien ne s'affiche après 2 minutes, signalez l'incident en précisant la salle.",
+    "keywords": ["videoprojecteur", "projecteur", "hdmi", "ecran", "affichage", "telecommande", "projection"]
+  },
+  {
+    "topic": "materiel",
+    "question": "Un poste de la salle informatique ne démarre pas, que faire ?",
+    "answer": "Vérifiez l'alimentation et l'écran, puis essayez un autre poste libre. Notez le numéro d'inventaire collé sur l'unité centrale (ex. INF-B204-12) et signalez l'incident avec ce numéro pour une intervention rapide.",
+    "keywords": ["pc", "ordinateur", "poste", "demarre pas", "salle informatique", "ecran noir", "clavier", "souris"]
+  },
+  {
+    "topic": "materiel",
+    "question": "Comment imprimer sur le campus ?",
+    "answer": "Les copieurs sont au rez-de-chaussée des bâtiments A et B et à la bibliothèque. Envoyez votre document depuis l'ENT (Impression > Envoyer) puis badgez avec votre carte étudiant sur le copieur. Chaque étudiant dispose de 300 pages par semestre, rechargeables à l'accueil.",
+    "keywords": ["imprimer", "impression", "imprimante", "copieur", "photocopie", "quota", "scanner"]
+  },
+  {
+    "topic": "materiel",
+    "question": "Une chaise ou une table est cassée, que faire ?",
+    "answer": "Ne l'utilisez pas et mettez-la de côté si c'est possible sans risque. Signalez l'incident dans SmartCampus avec la salle et, si possible, une photo du mobilier : l'équipe maintenance la remplace en général sous 48 h.",
+    "keywords": ["chaise", "table", "mobilier", "casse", "bureau", "meuble"]
+  },
+  {
+    "topic": "proprete",
+    "question": "Les toilettes sont sales ou en panne, que faire ?",
+    "answer": "Signalez l'incident dans SmartCampus en précisant le bâtiment et l'étage. L'équipe d'entretien passe deux fois par jour ; un signalement déclenche un passage supplémentaire. En cas de fuite d'eau importante, prévenez aussi l'accueil (poste 1000).",
+    "keywords": ["toilettes", "wc", "sanitaires", "sale", "proprete", "papier", "lavabo", "fuite", "eau"]
+  },
+  {
+    "topic": "proprete",
+    "question": "Il fait trop froid ou trop chaud dans une salle, que faire ?",
+    "answer": "Le chauffage est réglé à 20 °C et met environ une heure à réagir. Si la température reste anormale pendant un cours, signalez l'incident avec la salle : le service technique vérifie le thermostat et la ventilation.",
+    "keywords": ["chauffage", "froid", "chaud", "temperature", "climatisation", "radiateur", "ventilation"]
+  },
+  {
+    "topic": "securite",
+    "question": "Que faire en cas d'urgence ou de danger sur le campus ?",
+    "answer": "En cas de danger immédiat, appelez le 112 puis le poste de sécurité du campus (poste 2222, 24h/24). Pour un problème de sécurité non urgent (porte coupe-feu bloquée, éclairage défaillant, extincteur manquant), signalez-le dans SmartCampus : la catégorie Sécurité est traitée en priorité critique.",
+    "keywords": ["urgence", "danger", "securite", "accident", "blesse", "agression", "112", "malaise"]
+  },
+  {
+    "topic": "securite",
+    "question": "Que faire si l'alarme incendie se déclenche ?",
+    "answer": "Évacuez immédiatement par l'issue de secours la plus proche sans utiliser les ascenseurs, et rejoignez le point de rassemblement (parking principal). Ne revenez dans le bâtiment qu'après l'accord des guides-files ou des pompiers.",
+    "keywords": ["incendie", "alarme", "feu", "evacuation", "fumee", "extincteur"]
+  },
+  {
+    "topic": "autre",
+    "question": "J'ai perdu ma carte étudiant, comment la remplacer ?",
+    "answer": "Déclarez la perte sur l'ENT (Scolarité > Carte étudiant) pour bloquer l'ancienne carte. La nouvelle carte est disponible à l'accueil du bâtiment C sous 3 jours ouvrés, contre 10 € de frais de réédition.",
+    "keywords": ["carte etudiant", "badge", "perdu", "vol", "remplacer", "carte"]
+  },
+  {
+    "topic": "autre",
+    "question": "Où récupérer un objet perdu sur le campus ?",
+    "answer": "Les objets trouvés sont centralisés à l'accueil du bâtiment A et conservés un mois. Présentez-vous avec votre carte étudiant et une description de l'objet.",
+    "keywords": ["objet perdu", "objets trouves", "perdu", "oublie", "retrouver", "affaires"]
+  },
+  {
+    "topic": "autre",
+    "question": "Quels sont les horaires du restaurant universitaire ?",
+    "answer": "Le restaurant universitaire est ouvert du lundi au vendredi de 11h30 à 14h. La cafétéria du bâtiment A est ouverte de 8h à 17h. Le paiement se fait avec la carte étudiant rechargeable.",
+    "keywords": ["restaurant", "cantine", "ru", "manger", "dejeuner", "cafeteria", "repas"]
+  },
+  {
+    "topic": "autre",
+    "question": "Comment signaler un problème d'accessibilité (ascenseur, rampe) ?",
+    "answer": "Signalez-le dans SmartCampus (catégorie Salle ou Matériel) en précisant le lieu ; un ascenseur en panne est traité en priorité. Pour un aménagement personnel, contactez la référente handicap à handicap@esiea.fr.",
+    "keywords": ["accessibilite", "ascenseur", "handicap", "rampe", "fauteuil", "pmr"]
+  },
+  {
+    "topic": "autre",
+    "question": "En combien de temps mon signalement est-il traité ?",
+    "answer": "Chaque signalement est pris en charge en moins de 24 h ouvrées ; au-delà, il est signalé en retard à l'administration et vous êtes prévenu. Les incidents de sécurité sont traités en priorité critique. Vous pouvez suivre l'avancement et l'historique dans « Mes signalements ».",
+    "keywords": ["delai", "combien de temps", "traite", "attente", "suivi", "signalement", "ticket"]
+  }
+]

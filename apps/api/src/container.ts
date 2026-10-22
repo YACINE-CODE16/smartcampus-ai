@@ -1,33 +1,33 @@
 import type { Env } from './config/env';
-import { createPrismaClient, type PrismaClient } from './adapters/local/prisma';
+import { createPrismaClient, type PrismaClient } from './db';
+import { LocalAuthProvider } from './adapters/local-auth';
+import { SessionService } from './http/session';
+import type { AuthProvider } from './ports/auth';
 
 /**
- * Racine de composition : seul endroit qui choisit les implémentations des ports
- * (`src/ports`) selon `ADAPTERS_MODE`. Le reste du code ne dépend que des interfaces.
- *
- * Les adapters sont ajoutés au fil des phases :
- *   phase 1 AuthProvider · phase 2 Repositories, UnitOfWork, FileStorage
- *   phase 4 RealtimePublisher, Scheduler · phase 6 AiAssistant, KnowledgeProvider
- *   phase 7 Mailer · phase 9 implémentations `aws`
+ * Racine de composition : SEUL endroit qui choisit les implémentations des ports
+ * selon les variables d'environnement (AUTH_PROVIDER, STORAGE_DRIVER, AI_DRIVER).
  */
 export interface Container {
   env: Env;
   prisma: PrismaClient;
+  auth: AuthProvider;
+  sessions: SessionService;
   /** Nom de l'implémentation active par port (affiché par /api/health). */
   adapterNames: Record<string, string>;
   dispose(): Promise<void>;
 }
 
 export function createContainer(env: Env): Container {
-  switch (env.ADAPTERS_MODE) {
-    case 'local': {
-      const prisma = createPrismaClient(env.DATABASE_URL);
-      return {
-        env,
-        prisma,
-        adapterNames: { database: 'prisma-sqlite' },
-        dispose: () => prisma.$disconnect(),
-      };
-    }
-  }
+  const prisma = createPrismaClient(env.DATABASE_URL);
+  const auth = new LocalAuthProvider(prisma);
+
+  return {
+    env,
+    prisma,
+    auth,
+    sessions: new SessionService(env),
+    adapterNames: { database: 'postgresql', auth: auth.name },
+    dispose: () => prisma.$disconnect(),
+  };
 }

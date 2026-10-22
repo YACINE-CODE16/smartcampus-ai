@@ -1,10 +1,10 @@
-import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
-import { PrismaClient } from '../../generated/prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from './generated/prisma/client';
 
 export type { PrismaClient };
 
 export function createPrismaClient(databaseUrl: string): PrismaClient {
-  return new PrismaClient({ adapter: new PrismaBetterSqlite3({ url: databaseUrl }) });
+  return new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
 }
 
 export async function isDatabaseReachable(prisma: PrismaClient): Promise<boolean> {

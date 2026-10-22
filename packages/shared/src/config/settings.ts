@@ -1,10 +1,11 @@
-/** Réglages métier (délais, limites). Modifier ici, jamais en dur ailleurs. */
+/** Réglages métier. Modifier ici, jamais en dur ailleurs. */
 export const SETTINGS = {
-  autoCloseDays: 7,
-  anonymizeAfterMonths: 12,
+  /** Au-delà, un ticket encore NOUVEAU est « en retard » (R4). */
+  lateAfterHours: 24,
   maxPhotoMb: 10,
-  acceptedPhotoTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/heic'],
-  activeStudentWindowDays: 30,
-  /** Durée de validité d'une URL de fichier signée (équivalent URL présignée S3). */
-  fileUrlTtlSeconds: 300,
+  acceptedPhotoTypes: ['image/jpeg', 'image/png'] as readonly string[],
+  description: { min: 10, max: 2000 },
+  room: { max: 40 },
+  reason: { min: 5, max: 500 },
+  comment: { max: 1000 },
 } as const;

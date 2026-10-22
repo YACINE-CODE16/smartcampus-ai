@@ -1,7 +1,10 @@
-// Prépare l'environnement local : apps/api/.env (avec un secret JWT aléatoire) puis migrations.
+// Prépare l'environnement local en une commande :
+// 1. apps/api/.env (secret JWT aléatoire)  2. PostgreSQL (docker compose)  3. migrations  4. données de démo
 import { execSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+
+const run = (cmd, cwd = '.') => execSync(cmd, { cwd, stdio: 'inherit' });
 
 const envFile = 'apps/api/.env';
 if (existsSync(envFile)) {
@@ -13,8 +16,6 @@ if (existsSync(envFile)) {
   console.log(`${envFile} créé.`);
 }
 
-if (existsSync('apps/api/prisma/migrations')) {
-  execSync('npx prisma migrate deploy', { cwd: 'apps/api', stdio: 'inherit' });
-} else {
-  console.log('Aucune migration à appliquer pour le moment.');
-}
+run('docker compose up -d --wait');
+run('npx prisma migrate deploy', 'apps/api');
+run('npm run seed', 'apps/api');

@@ -1,11 +1,11 @@
 /**
- * Erreurs métier, indépendantes du transport. La couche HTTP les traduit en codes
- * (et une future couche Lambda/AppSync en erreurs GraphQL).
+ * Erreurs métier, indépendantes du transport. La couche HTTP les traduit en codes.
  */
 export class DomainError extends Error {
   constructor(
     readonly code: 'VALIDATION' | 'UNAUTHORIZED' | 'FORBIDDEN' | 'NOT_FOUND' | 'CONFLICT',
     message: string,
+    readonly fields?: Record<string, string>,
   ) {
     super(message);
     this.name = new.target.name;
@@ -13,8 +13,8 @@ export class DomainError extends Error {
 }
 
 export class ValidationError extends DomainError {
-  constructor(message: string) {
-    super('VALIDATION', message);
+  constructor(message: string, fields?: Record<string, string>) {
+    super('VALIDATION', message, fields);
   }
 }
 
@@ -30,6 +30,7 @@ export class ForbiddenError extends DomainError {
   }
 }
 
+/** Utilisé aussi pour un ticket existant mais non autorisé : on ne révèle pas son existence. */
 export class NotFoundError extends DomainError {
   constructor(message = 'Ressource introuvable.') {
     super('NOT_FOUND', message);
