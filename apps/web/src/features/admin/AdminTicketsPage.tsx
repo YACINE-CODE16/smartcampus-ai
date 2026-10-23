@@ -41,7 +41,7 @@ export function AdminTicketsPage() {
         <h1>
           {t('Tickets', 'Tickets')} {data && <span className="count">{data.length}</span>}
         </h1>
-        {/* US-27 : export des tickets affichés (même filtres), tracé dans le journal d'audit */}
+        {/* US-33 : export des tickets affichés (même filtres), tracé dans le journal d'audit */}
         <a className="btn btn--secondary" href={`/api/admin/incidents/export.csv${qs}`} download>
           <Download size={16} strokeWidth={1.75} aria-hidden="true" />
           {t('Exporter en CSV', 'Export to CSV')}

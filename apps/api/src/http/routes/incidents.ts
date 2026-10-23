@@ -15,7 +15,10 @@ import { NotFoundError, ValidationError } from '../../domain/errors';
 import { currentUser, requireRole } from '../middlewares/auth';
 import { parseBody } from '../validation';
 
-const PHOTO_ERROR = bi(`Photo JPG ou PNG de ${SETTINGS.maxPhotoMb} Mo maximum`, `JPG or PNG photo, ${SETTINGS.maxPhotoMb} MB max`);
+const PHOTO_ERROR = bi(
+  `Photo JPG/PNG ou document PDF de ${SETTINGS.maxPhotoMb} Mo maximum`,
+  `JPG/PNG photo or PDF document, ${SETTINGS.maxPhotoMb} MB max`,
+);
 
 const upload = multer({
   storage: multer.memoryStorage(),

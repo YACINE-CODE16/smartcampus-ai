@@ -66,7 +66,7 @@ const BUILDINGS = [
   { code: 'RU', name: 'Restaurant universitaire', rooms: ['Salle principale', 'Cafétéria', 'Terrasse'] },
 ] as const;
 
-/** Poids des bâtiments : A et B concentrent les problèmes (US-30 parlant). */
+/** Poids des bâtiments : A et B concentrent les problèmes (US-29 parlant). */
 const BUILDING_WEIGHTS = ['A', 'A', 'A', 'B', 'B', 'B', 'C', 'BIB', 'BIB', 'RU'] as const;
 
 const DESCRIPTIONS: Record<string, string[]> = {
@@ -230,7 +230,7 @@ async function main() {
   const documents = JSON.parse(readFileSync(new URL('./data/documents.json', import.meta.url), 'utf8')) as { title: string; content: string; language: string }[];
   await prisma.kbDocument.createMany({ data: documents });
 
-  const agents = [users.karim, users.karim, users.julie]; // Karim un peu plus chargé (US-33)
+  const agents = [users.karim, users.karim, users.julie]; // Karim un peu plus chargé (US-32)
   const nonSecurity = CATEGORIES.map((c) => c.slug).filter((s) => s !== 'securite');
 
   const drafts = specs().map((spec) => {

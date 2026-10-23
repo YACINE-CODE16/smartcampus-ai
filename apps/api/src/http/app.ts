@@ -22,7 +22,7 @@ const STATUS_BY_CODE: Record<DomainError['code'], number> = {
   CONFLICT: 409,
 };
 
-/** NFR-2 : toute requête API au-delà de ce seuil est signalée dans les logs. */
+/** US-36 : toute requête API au-delà de ce seuil est signalée dans les logs (temps de réponse). */
 const SLOW_REQUEST_MS = 2000;
 
 export function createApp(container: Container) {

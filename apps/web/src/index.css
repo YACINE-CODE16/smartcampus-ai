@@ -345,6 +345,8 @@ fieldset.field { border: 0; padding: 0; margin: 0; }
 .report { max-width: 720px; }
 .report > h1 { margin-bottom: var(--s5); }
 .photo-preview { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s3); }
+.file-chip { display: inline-flex; align-items: center; gap: var(--s2); padding: var(--s2) var(--s3); border: 1px solid var(--line); border-radius: var(--r-sm); font-size: var(--fs-sm); max-width: 100%; overflow-wrap: anywhere; }
+.incident__file { margin-bottom: var(--s5); }
 .photo-preview img { max-width: 240px; max-height: 180px; border-radius: var(--r-sm); border: 1px solid var(--line); }
 .notice { color: var(--ink-2); }
 .ai-suggest { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); padding: var(--s3); border: 1px dashed var(--line-strong); border-radius: var(--r-sm); font-size: var(--fs-sm); }
@@ -572,3 +574,17 @@ fieldset.field { border: 0; padding: 0; margin: 0; }
 .prose h2 { margin: var(--s6) 0 var(--s2); }
 .prose p, .prose ul { margin: var(--s2) 0; }
 .prose li + li { margin-top: var(--s1); }
+
+/* ========== US-33 : filtres et export du tableau de bord ========== */
+.dash-filters { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.dash-filters__export { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: end; }
+
+/* Export PDF : impression du tableau de bord sans la navigation ni les contrôles. */
+@media print {
+  :root { color-scheme: light; --canvas: #fff; --surface: #fff; --surface-2: #f5f6f7; }
+  .topbar, .sidebar, .alerts, .footer, .skip-link, .dash-filters, .segmented, .chart-card__data, .btn { display: none !important; }
+  .shell--app { display: block; background: none; }
+  .content { padding: 0; max-width: none; }
+  .panel, .card { break-inside: avoid; }
+  .charts { grid-template-columns: 1fr 1fr; }
+}

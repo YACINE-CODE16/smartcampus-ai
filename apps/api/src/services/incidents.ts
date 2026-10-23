@@ -42,7 +42,7 @@ export interface NewIncidentInput {
   room: string;
   description: string;
   urgency: Urgency;
-  /** Échange avec l'assistant à l'origine du ticket (US-21, US-32). */
+  /** Échange avec l'assistant à l'origine du ticket (US-21, US-31). */
   assistantInteractionId?: string;
 }
 
@@ -63,12 +63,17 @@ export function visibleTo(user: SessionUser): Prisma.IncidentWhereInput {
   }
 }
 
-/** Vérifie la signature binaire : on ne se fie pas au type MIME déclaré par le navigateur. */
-function detectImageType(buf: Buffer): 'jpg' | 'png' | null {
+type FileType = 'jpg' | 'png' | 'pdf';
+
+/** Vérifie la signature binaire : on ne se fie pas au type MIME déclaré par le navigateur (US-04). */
+export function detectFileType(buf: Buffer): FileType | null {
   if (buf.length > 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'jpg';
   if (buf.length > 8 && buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'png';
+  if (buf.length > 5 && buf.subarray(0, 5).toString('latin1') === '%PDF-') return 'pdf';
   return null;
 }
+
+const MIME: Record<FileType, string> = { jpg: 'image/jpeg', png: 'image/png', pdf: 'application/pdf' };
 
 const EXCERPT = 110;
 
@@ -95,6 +100,7 @@ export function toSummary(row: IncidentRow, now = new Date()): IncidentSummary {
     owner: row.owner,
     assignedTo: row.assignedTo,
     hasPhoto: row.photoKey !== null,
+    attachmentKind: row.photoKey ? (row.photoKey.endsWith('.pdf') ? 'pdf' : 'image') : null,
     isLate: isLate(row, row.category.targetHours, now),
     reopenCount: row.reopenCount,
     createdAt: row.createdAt.toISOString(),
@@ -125,7 +131,7 @@ function toDetail(row: IncidentDetailRow): IncidentDetail {
   };
 }
 
-/** Filtres de liste communs à la liste et à l'export CSV (US-13, US-27). */
+/** Filtres de liste communs à la liste et à l'export CSV (US-13, US-33). */
 export function listWhere(user: SessionUser, query: IncidentListQuery): Prisma.IncidentWhereInput {
   const filters: Prisma.IncidentWhereInput[] = [visibleTo(user)];
   if (query.scope === 'mine' && user.role !== 'STUDENT') filters.push({ assignedToId: user.id });
@@ -170,10 +176,10 @@ export class IncidentService {
     if (!category) fields.categoryId = bi('Type inconnu', 'Unknown type');
     if (!building) fields.buildingId = bi('Bâtiment inconnu', 'Unknown building');
 
-    let photoType: 'jpg' | 'png' | null = null;
+    let photoType: FileType | null = null;
     if (photo) {
-      photoType = detectImageType(photo.buffer);
-      if (!photoType) fields.photo = bi('Photo JPG ou PNG de 10 Mo maximum', 'JPG or PNG photo, 10 MB max');
+      photoType = detectFileType(photo.buffer);
+      if (!photoType) fields.photo = bi('Photo JPG/PNG ou document PDF de 10 Mo maximum', 'JPG/PNG photo or PDF document, 10 MB max');
     }
     if (!category || !building || Object.keys(fields).length) {
       throw new ValidationError(bi('Certains champs sont invalides.', 'Some fields are invalid.'), fields);
@@ -182,7 +188,7 @@ export class IncidentService {
     let photoKey: string | null = null;
     if (photo && photoType) {
       photoKey = `incidents/${randomUUID()}.${photoType}`;
-      await this.storage.put(photoKey, photo.buffer, photoType === 'jpg' ? 'image/jpeg' : 'image/png');
+      await this.storage.put(photoKey, photo.buffer, MIME[photoType]);
     }
 
     let row: IncidentRow;
@@ -226,7 +232,7 @@ export class IncidentService {
     await this.notifications.notifyAdmins('CRITICAL_CREATED', t.id, { ticket: t.ticketNumber, title: t.title });
   }
 
-  /** US-08 / US-13 / US-27 : liste filtrée par R1 puis par les critères demandés. */
+  /** US-08 / US-13 / US-33 : liste filtrée par R1 puis par les critères demandés. */
   async list(user: SessionUser, query: IncidentListQuery): Promise<IncidentSummary[]> {
     const rows = await this.prisma.incident.findMany({
       where: listWhere(user, query),

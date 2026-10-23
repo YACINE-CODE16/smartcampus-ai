@@ -24,9 +24,16 @@ const id = (raw: unknown) => {
   return r.data;
 };
 
-/** US-19 à US-23, US-25 : assistant de l'étudiant. */
+/** US-19 à US-23 (étudiant) et US-25 (suggestion de qualification pour l'agent et l'étudiant). */
 export function assistantRouter(container: Container): Router {
   const router = Router();
+
+  // US-25 : proposée à l'agent sur chaque nouveau ticket, et à l'étudiant pendant la saisie.
+  router.post('/triage', async (req, res) => {
+    const { description } = parseBody(z.object({ description: z.string().max(2000) }), req.body);
+    res.json({ suggestion: await container.assistant.triage(currentUser(req), description) });
+  });
+
   router.use(requireRole('STUDENT'));
 
   router.post('/ask', async (req, res) => {
@@ -38,11 +45,6 @@ export function assistantRouter(container: Container): Router {
     const { helpful } = parseBody(z.object({ helpful: z.boolean().nullable() }), req.body);
     await container.assistant.feedback(currentUser(req), id(req.params.id), helpful);
     res.status(204).end();
-  });
-
-  router.post('/triage', async (req, res) => {
-    const { description } = parseBody(z.object({ description: z.string().max(2000) }), req.body);
-    res.json({ suggestion: await container.assistant.triage(currentUser(req), description) });
   });
 
   return router;

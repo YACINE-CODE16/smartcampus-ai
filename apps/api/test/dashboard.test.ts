@@ -1,4 +1,4 @@
-/** Bloc b : tableau de bord (US-28 à US-33) et export CSV (US-27). */
+/** Bloc b : tableau de bord (US-27 à US-32) et export CSV (US-33). */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { DashboardResponse, IncidentSummary } from '@smartcampus/shared';
 import { startApi, type TestApi } from './helpers';
@@ -15,7 +15,7 @@ describe('GET /admin/dashboard', () => {
     expect((await api.call('alice', '/admin/dashboard')).status).toBe(403);
   });
 
-  it('US-28 : la somme des statuts vaut le total de la période ; US-30 : 5 bâtiments triés', async () => {
+  it('US-27 : la somme des statuts vaut le total de la période ; US-29 : 5 bâtiments triés', async () => {
     const d = await api.json<DashboardResponse>('claire', '/admin/dashboard?period=all');
     const sum = Object.values(d.byStatus).reduce((a, b) => a + b, 0);
     expect(sum).toBe(d.kpis.total);
@@ -25,7 +25,7 @@ describe('GET /admin/dashboard', () => {
     expect(d.byCategory.reduce((a, c) => a + c.count, 0)).toBe(d.kpis.total);
   });
 
-  it('US-29 : indicateurs bornés et satisfaction issue des notes (US-12)', async () => {
+  it('US-28 : indicateurs bornés et satisfaction issue des notes (US-12)', async () => {
     const d = await api.json<DashboardResponse>('claire', '/admin/dashboard?period=30d');
     expect(d.kpis.resolutionRate).toBeGreaterThan(0);
     expect(d.kpis.resolutionRate).toBeLessThanOrEqual(1);
@@ -38,7 +38,7 @@ describe('GET /admin/dashboard', () => {
     expect(d.kpis.late).toBeGreaterThanOrEqual(3);
   });
 
-  it('US-31 : granularités jour / semaine / mois et créés = total', async () => {
+  it('US-30 : granularités jour / semaine / mois et créés = total', async () => {
     for (const g of ['day', 'week', 'month'] as const) {
       const d = await api.json<DashboardResponse>('claire', `/admin/dashboard?period=30d&granularity=${g}`);
       expect(d.series.reduce((a, p) => a + p.created, 0)).toBe(d.kpis.total);
@@ -47,7 +47,7 @@ describe('GET /admin/dashboard', () => {
     expect(days.series.length).toBeGreaterThanOrEqual(7);
   });
 
-  it('US-33 : charge par agent cohérente avec les tickets ouverts affectés', async () => {
+  it('US-32 : charge par agent cohérente avec les tickets ouverts affectés', async () => {
     const d = await api.json<DashboardResponse>('claire', '/admin/dashboard');
     const karim = d.agents.find((a) => a.id === api.ids.karim)!;
     const open = await api.container.prisma.incident.count({ where: { assignedToId: api.ids.karim, status: { in: ['NOUVEAU', 'EN_COURS'] } } });
@@ -59,7 +59,7 @@ describe('GET /admin/dashboard', () => {
   });
 });
 
-describe('US-27 export CSV', () => {
+describe('US-33 export CSV', () => {
   it('exporte les tickets filtrés, en UTF-8 avec BOM, et trace l’export', async () => {
     const before = await api.container.prisma.auditLog.count({ where: { action: 'EXPORT' } });
     const res = await api.call('claire', '/admin/incidents/export.csv?late=true');

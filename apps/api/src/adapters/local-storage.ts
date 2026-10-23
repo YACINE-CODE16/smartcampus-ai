@@ -1,9 +1,7 @@
 import { createReadStream } from 'node:fs';
 import { mkdir, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
-import { FILE_KEY_PATTERN, type FileStorage, type StoredFile } from '../ports/file-storage';
-
-const CONTENT_TYPES: Record<string, string> = { jpg: 'image/jpeg', png: 'image/png' };
+import { CONTENT_TYPES, FILE_KEY_PATTERN, type FileStorage, type StoredFile } from '../ports/file-storage';
 
 /** Photos sur le disque local (développement). */
 export class LocalFileStorage implements FileStorage {

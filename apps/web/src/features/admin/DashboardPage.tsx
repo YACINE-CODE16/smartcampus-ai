@@ -1,5 +1,5 @@
 import { StatusBadge } from '../../components/Badges';
-import { Clock, TriangleAlert } from 'lucide-react';
+import { Clock, Download, Printer, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import {
@@ -9,7 +9,9 @@ import {
   type DashboardPeriod,
   type DashboardResponse,
   type Granularity,
+  type Referentials,
 } from '@smartcampus/shared';
+import { query } from '../../lib/api';
 import { formatHours, formatPercent } from '../../lib/format';
 import { useI18n } from '../../lib/i18n';
 import { useLive } from '../../lib/live';
@@ -52,12 +54,16 @@ function Tile({ label, value, hint, tone }: { label: string; value: string; hint
   );
 }
 
-/** US-28 à US-33 : tableau de bord de l'administration. */
+/** US-27 à US-33 : tableau de bord de l'administration. */
 export function DashboardPage() {
   const { t, label, category, lang } = useI18n();
   const [period, setPeriod] = useState<DashboardPeriod>('30d');
   const [granularity, setGranularity] = useState<Granularity>('day');
-  const { data: d, error, loading, reload } = useApi<DashboardResponse>(`/admin/dashboard?period=${period}&granularity=${granularity}`);
+  const [categoryId, setCategoryId] = useState('');
+  const [buildingId, setBuildingId] = useState('');
+  const { data: refs } = useApi<Referentials>('/referentials');
+  const filters = { period, categoryId, buildingId };
+  const { data: d, error, loading, reload } = useApi<DashboardResponse>(`/admin/dashboard${query({ ...filters, granularity })}`);
   useLive((e) => (e.type === 'incident.changed' || e.type === 'alert') && reload());
 
   const nf = new Intl.NumberFormat(lang === 'en' ? 'en-GB' : 'fr-FR', { maximumFractionDigits: 1 });
@@ -76,12 +82,48 @@ export function DashboardPage() {
         </div>
       </div>
 
+      {/* US-33 : filtres (période ci-dessus, catégorie, lieu) et exports */}
+      <form className="filters panel dash-filters" role="search" onSubmit={(e) => e.preventDefault()}>
+        <div className="field">
+          <label htmlFor="d-cat">{t('Catégorie', 'Category')}</label>
+          <select id="d-cat" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+            <option value="">{t('Toutes', 'All')}</option>
+            {refs?.categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {category(c)}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="d-bld">{t('Lieu', 'Location')}</label>
+          <select id="d-bld" value={buildingId} onChange={(e) => setBuildingId(e.target.value)}>
+            <option value="">{t('Tous les bâtiments', 'All buildings')}</option>
+            {refs?.buildings.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="dash-filters__export">
+          <a className="btn btn--secondary" href={`/api/admin/dashboard/export.csv${query(filters)}`} download>
+            <Download size={16} strokeWidth={1.75} aria-hidden="true" />
+            {t('Exporter en CSV', 'Export to CSV')}
+          </a>
+          <button type="button" className="btn btn--secondary" onClick={() => window.print()}>
+            <Printer size={16} strokeWidth={1.75} aria-hidden="true" />
+            {t('Exporter en PDF', 'Export to PDF')}
+          </button>
+        </div>
+      </form>
+
       {error && <p className="alert alert--error">{error.message}</p>}
       {loading && !d && <p className="muted">{t('Chargement…', 'Loading…')}</p>}
 
       {d && (
         <>
-          {/* US-29 + état actuel */}
+          {/* US-28 + état actuel */}
           <div className="stats panel">
             <Tile label={t('Tickets sur la période', 'Tickets in period')} value={nf.format(d.kpis.total)} />
             <Tile label={t('Délai moyen de résolution', 'Average resolution time')} value={formatHours(d.kpis.avgResolutionHours, lang)} />
@@ -100,7 +142,7 @@ export function DashboardPage() {
             </Link>
           </div>
 
-          {/* US-28 : compteurs par statut */}
+          {/* US-27 : compteurs par statut */}
           <section className="card status-strip" aria-label={t('Tickets par statut', 'Tickets by status')}>
             <h2>{t('Par statut', 'By status')}</h2>
             <ul>
@@ -166,7 +208,15 @@ export function DashboardPage() {
               <HBarChart data={d.byBuilding.map((b) => ({ name: b.name.split(' – ')[0]!, value: b.count }))} valueLabel={t('Tickets', 'Tickets')} />
             </ChartCard>
 
-            {/* US-33 */}
+            {/* US-29 : par salle */}
+            <ChartCard
+              title={t('Salles les plus signalées', 'Most reported rooms')}
+              table={<SimpleTable rows={d.byRoom.map((r) => [`${r.building.code} ${r.room}`, r.count])} head={[t('Salle', 'Room'), t('Tickets', 'Tickets')]} />}
+            >
+              <HBarChart data={d.byRoom.map((r) => ({ name: `${r.building.code} ${r.room}`, value: r.count }))} valueLabel={t('Tickets', 'Tickets')} />
+            </ChartCard>
+
+            {/* US-32 */}
             <section className="card">
               <h2>{t('Charge par agent', 'Workload per agent')}</h2>
               <TableWrap card={false} label={t('Charge par agent', 'Workload per agent')}>
@@ -213,7 +263,7 @@ export function DashboardPage() {
               </TableWrap>
             </section>
 
-            {/* US-32 */}
+            {/* US-31 */}
             <section className="card">
               <h2>{t('Assistant IA', 'AI assistant')}</h2>
               <p className="muted chart-card__sub">{t('Statistiques agrégées, sans le contenu des questions.', 'Aggregated statistics, without question content.')}</p>

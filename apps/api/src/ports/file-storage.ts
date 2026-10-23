@@ -19,5 +19,7 @@ export interface FileStorage {
   delete(key: string): Promise<void>;
 }
 
-/** Clés acceptées : `incidents/<uuid>.<jpg|png>` (empêche toute traversée de chemin). */
-export const FILE_KEY_PATTERN = /^incidents\/[0-9a-f-]{36}\.(jpg|png)$/;
+/** Clés acceptées : `incidents/<uuid>.<jpg|png|pdf>` (empêche toute traversée de chemin). */
+export const FILE_KEY_PATTERN = /^incidents\/[0-9a-f-]{36}\.(jpg|png|pdf)$/;
+
+export const CONTENT_TYPES: Record<string, string> = { jpg: 'image/jpeg', png: 'image/png', pdf: 'application/pdf' };

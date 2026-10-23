@@ -20,7 +20,7 @@ Workshop Capgemini × ESIEA (1,5 jour). Réalisation le vendredi 23/10 de 10h40 
 ## Valeur
 Gain de temps, transparence, pilotage par la donnée.
 
-## KPIs du dashboard (US-28/29/30)
+## KPIs du dashboard (US-27/29/30)
 - Tickets par statut, par catégorie, par période et par bâtiment.
 - Délai moyen de résolution, taux de résolution, taux de réouverture.
 - Tickets critiques ouverts (Sécurité) et tickets en retard (> 24 h sans prise en charge).

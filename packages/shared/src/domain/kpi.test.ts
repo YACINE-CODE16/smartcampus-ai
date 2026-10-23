@@ -18,7 +18,7 @@ const ticket = (status: KpiTicket['status'], resolvedAfterH: number | null, reop
   reopenCount,
 });
 
-/** Scénario de US-29 : 10 tickets, 6 résolus/fermés en 12 h en moyenne, 1 contesté. */
+/** Scénario de US-28 : 10 tickets, 6 résolus/fermés en 12 h en moyenne, 1 contesté. */
 const scenario: KpiTicket[] = [
   ticket('RESOLU', 6),
   ticket('RESOLU', 18),
@@ -32,7 +32,7 @@ const scenario: KpiTicket[] = [
   ticket('NOUVEAU', null),
 ];
 
-describe('US-29 indicateurs de performance', () => {
+describe('US-28 indicateurs de performance', () => {
   it('délai moyen de résolution = 12 h', () => expect(avgResolutionHours(scenario)).toBe(12));
   it('taux de résolution = 60 %', () => expect(resolutionRate(scenario)).toBeCloseTo(0.6));
   it('taux de réouverture = 1/6 ≈ 17 %', () => expect(reopenRate(scenario)).toBeCloseTo(1 / 6));
@@ -52,7 +52,7 @@ describe('US-12 satisfaction moyenne', () => {
   it('null sans note', () => expect(averageScore([])).toBeNull());
 });
 
-describe('US-31 regroupements temporels (heure de Paris)', () => {
+describe('US-30 regroupements temporels (heure de Paris)', () => {
   it('jour, semaine ISO, mois, année', () => {
     const d = '2026-10-22T10:00:00Z';
     expect(bucketKey(d, 'day')).toBe('2026-10-22');
@@ -78,7 +78,7 @@ describe('US-31 regroupements temporels (heure de Paris)', () => {
   });
 });
 
-describe('US-32 part résolue par l’IA', () => {
+describe('US-31 part résolue par l’IA', () => {
   it('réponses fondées, 👍 et sans ticket / réponses évaluées', () => {
     expect(
       aiResolvedRate([

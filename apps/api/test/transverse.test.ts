@@ -1,4 +1,4 @@
-/** Bloc e : suppression des données (US-34), sécurité (US-36), audit (US-37). */
+/** Bloc e : protection et suppression des données (US-34), audit (US-37). */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { AuditEntryDto, IncidentSummary, Referentials } from '@smartcampus/shared';
 import { hashPassword } from '../src/adapters/password';
@@ -19,7 +19,7 @@ const base = () => {
   return api.call(null, '/health').then((r) => r.url.replace(/\/health$/, ''));
 };
 
-describe('US-36 sécurité', () => {
+describe('US-34 protection des données (en-têtes, limitation de connexion)', () => {
   it('en-têtes de sécurité sur chaque réponse', async () => {
     const res = await api.call(null, '/health');
     expect(res.headers.get('x-content-type-options')).toBe('nosniff');

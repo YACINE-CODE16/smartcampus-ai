@@ -20,7 +20,7 @@ function cell(value: string | number | null): string {
   return /[;"\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-/** US-27 : export CSV des tickets filtrés (sans description ni données personnelles au-delà du nom), audité. */
+/** US-33 : export CSV des tickets filtrés (sans description ni données personnelles au-delà du nom), audité. */
 export class ExportService {
   constructor(
     private readonly prisma: PrismaClient,

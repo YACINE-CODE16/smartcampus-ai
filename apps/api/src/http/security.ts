@@ -2,7 +2,7 @@ import type { Request, RequestHandler } from 'express';
 import { bi, localize, SETTINGS } from '@smartcampus/shared';
 import { requestLang } from './lang';
 
-/** US-36 : en-têtes de sécurité des réponses de l'API (le front est servi par nginx avec sa propre politique). */
+/** US-34 : en-têtes de sécurité des réponses de l'API (le front est servi par nginx avec sa propre politique). */
 export function securityHeaders(hsts: boolean): RequestHandler {
   return (_req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -17,7 +17,7 @@ export function securityHeaders(hsts: boolean): RequestHandler {
 }
 
 /**
- * US-36 : au plus 10 échecs de connexion par IP sur 15 minutes (mémoire de l'instance unique).
+ * US-34 : au plus 10 échecs de connexion par IP sur 15 minutes (mémoire de l'instance unique).
  * Une connexion réussie remet le compteur à zéro.
  */
 export class LoginLimiter {

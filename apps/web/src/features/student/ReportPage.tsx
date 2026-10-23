@@ -1,4 +1,4 @@
-import { Bot, CircleCheck, ShieldCheck } from 'lucide-react';
+import { Bot, CircleCheck, FileText, ShieldCheck } from 'lucide-react';
 import { StatusBadge } from '../../components/Badges';
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
@@ -24,7 +24,7 @@ export interface ReportPrefill {
   buildingCode?: string;
   room?: string;
   description?: string;
-  /** Échange de l'assistant à l'origine du ticket (statistiques US-32). */
+  /** Échange de l'assistant à l'origine du ticket (statistiques US-31). */
   interactionId?: string;
 }
 
@@ -88,7 +88,10 @@ export function ReportPage() {
   const categoryId = chosenCategoryId ?? refs?.categories.find((c) => c.slug === prefill?.categorySlug)?.id ?? '';
   const buildingId = chosenBuildingId ?? refs?.buildings.find((b) => b.code === prefill?.buildingCode)?.id ?? '';
   const selectedCategory = refs?.categories.find((c) => c.id === categoryId);
-  const photoError = t(`Photo JPG ou PNG de ${SETTINGS.maxPhotoMb} Mo maximum`, `JPG or PNG photo, ${SETTINGS.maxPhotoMb} MB max`);
+  const photoError = t(
+    `Photo JPG/PNG ou document PDF de ${SETTINGS.maxPhotoMb} Mo maximum`,
+    `JPG/PNG photo or PDF document, ${SETTINGS.maxPhotoMb} MB max`,
+  );
 
   useEffect(() => () => void (preview && URL.revokeObjectURL(preview)), [preview]);
 
@@ -202,7 +205,8 @@ export function ReportPage() {
       return;
     }
     setPhoto(file);
-    setPreview(URL.createObjectURL(file));
+    // Aperçu pour une image ; un PDF est affiché par son nom de fichier.
+    setPreview(file.type === 'application/pdf' ? null : URL.createObjectURL(file));
   }
 
   function removePhoto() {
@@ -449,12 +453,19 @@ export function ReportPage() {
         </fieldset>
 
         <div className="field">
-          <label htmlFor="f-photo">{t('Photo (facultative)', 'Photo (optional)')}</label>
-          {preview ? (
+          <label htmlFor="f-photo">{t('Photo ou document (facultatif)', 'Photo or document (optional)')}</label>
+          {photo ? (
             <div className="photo-preview">
-              <img src={preview} alt={t('Aperçu de la photo jointe', 'Preview of the attached photo')} />
+              {preview ? (
+                <img src={preview} alt={t('Aperçu de la photo jointe', 'Preview of the attached photo')} />
+              ) : (
+                <span className="file-chip">
+                  <FileText size={18} strokeWidth={1.75} aria-hidden="true" />
+                  {photo.name}
+                </span>
+              )}
               <button type="button" className="btn btn--secondary btn--sm" onClick={removePhoto}>
-                {t('Retirer la photo', 'Remove photo')}
+                {t('Retirer la pièce jointe', 'Remove attachment')}
               </button>
             </div>
           ) : (
@@ -462,13 +473,13 @@ export function ReportPage() {
               id="f-photo"
               ref={fileInput}
               type="file"
-              accept="image/jpeg,image/png"
+              accept="image/jpeg,image/png,application/pdf"
               onChange={onPhoto}
               aria-describedby={`h-photo${errors.photo ? ' e-photo' : ''}`}
             />
           )}
           <p id="h-photo" className="field__help">
-            {t(`JPG ou PNG, ${SETTINGS.maxPhotoMb} Mo maximum.`, `JPG or PNG, ${SETTINGS.maxPhotoMb} MB max.`)}
+            {t(`JPG, PNG ou PDF, ${SETTINGS.maxPhotoMb} Mo maximum.`, `JPG, PNG or PDF, ${SETTINGS.maxPhotoMb} MB max.`)}
           </p>
           {errors.photo && (
             <p id="e-photo" className="field__error">

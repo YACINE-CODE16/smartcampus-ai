@@ -35,7 +35,7 @@ export function ChartCard({ title, subtitle, table, children }: { title: string;
   );
 }
 
-/** Barres horizontales à une série (US-28 catégories, US-30 bâtiments) : valeur au bout de chaque barre. */
+/** Barres horizontales à une série (US-27 catégories, US-29 bâtiments) : valeur au bout de chaque barre. */
 export function HBarChart({ data, valueLabel }: { data: { name: string; value: number }[]; valueLabel: string }) {
   const height = Math.max(160, data.length * 36 + 24);
   return (
@@ -55,7 +55,7 @@ export function HBarChart({ data, valueLabel }: { data: { name: string; value: n
   );
 }
 
-/** US-31 : évolution des tickets créés et résolus (deux séries, une seule échelle). */
+/** US-30 : évolution des tickets créés et résolus (deux séries, une seule échelle). */
 export function TrendChart({ data, createdLabel, resolvedLabel }: { data: { bucket: string; created: number; resolved: number }[]; createdLabel: string; resolvedLabel: string }) {
   return (
     <div style={{ width: '100%', height: 280 }}>

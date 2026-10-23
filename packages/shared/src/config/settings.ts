@@ -6,7 +6,8 @@ export const SETTINGS = {
   /** Fréquence du contrôle des délais cibles. */
   overdueCheckMinutes: 5,
   maxPhotoMb: 10,
-  acceptedPhotoTypes: ['image/jpeg', 'image/png'] as readonly string[],
+  /** US-04 : photo (JPG, PNG) ou document (PDF). */
+  acceptedPhotoTypes: ['image/jpeg', 'image/png', 'application/pdf'] as readonly string[],
   description: { min: 10, max: 2000 },
   room: { max: 40 },
   reason: { min: 5, max: 500 },
@@ -15,6 +16,6 @@ export const SETTINGS = {
   ratingComment: { max: 500 },
   /** Saisie minimale avant de demander une suggestion de qualification à l'IA (US-25). */
   triageMinChars: 15,
-  /** US-36 : tentatives de connexion par IP et par fenêtre. */
+  /** US-34 : tentatives de connexion par IP et par fenêtre. */
   loginRateLimit: { max: 10, windowMinutes: 15 },
 } as const;

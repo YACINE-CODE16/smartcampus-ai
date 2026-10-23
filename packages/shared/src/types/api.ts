@@ -89,7 +89,9 @@ export interface IncidentSummary {
   room: string;
   owner: PersonRef;
   assignedTo: PersonRef | null;
+  /** Pièce jointe présente (photo ou document, US-04). */
   hasPhoto: boolean;
+  attachmentKind: 'image' | 'pdf' | null;
   isLate: boolean;
   reopenCount: number;
   createdAt: ISODate;
@@ -134,9 +136,9 @@ export interface IncidentListQuery {
   priority?: Priority;
   /** Uniquement les tickets en retard (US-18). */
   late?: boolean;
-  /** Recherche dans le numéro, le titre et la salle (US-27). */
+  /** Recherche dans le numéro, le titre et la salle (US-33). */
   q?: string;
-  /** Période de création (ISO, US-27). */
+  /** Période de création (ISO, US-33). */
   from?: ISODate;
   to?: ISODate;
 }
@@ -166,7 +168,7 @@ export interface AgentDto {
   id: string;
   name: string;
   email: string;
-  /** Tickets ouverts affectés (US-13, US-33). */
+  /** Tickets ouverts affectés (US-13, US-32). */
   openCount: number;
 }
 
@@ -186,7 +188,7 @@ export type LiveEvent =
 export const DASHBOARD_PERIODS = ['7d', '30d', '90d', 'all'] as const;
 export type DashboardPeriod = (typeof DASHBOARD_PERIODS)[number];
 
-/** US-28 à US-33 : données du tableau de bord pour une période. */
+/** US-27 à US-32 : données du tableau de bord pour une période. */
 export interface DashboardResponse {
   period: DashboardPeriod;
   granularity: 'day' | 'week' | 'month' | 'year';
@@ -206,6 +208,9 @@ export interface DashboardResponse {
   byStatus: Record<IncidentStatus, number>;
   byCategory: { id: string; label: string; labelEn: string; count: number }[];
   byBuilding: { id: string; name: string; count: number }[];
+  /** US-29 : salles les plus signalées (8 premières). */
+  byRoom: { building: { code: string; name: string }; room: string; count: number }[];
+  filters: { categoryId: string | null; buildingId: string | null };
   series: { bucket: string; created: number; resolved: number }[];
   agents: {
     id: string;

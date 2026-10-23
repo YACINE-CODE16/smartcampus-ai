@@ -18,22 +18,31 @@ import type { PrismaClient } from '../db';
 const DAY = 86_400_000;
 const PERIOD_DAYS: Record<Exclude<DashboardPeriod, 'all'>, number> = { '7d': 7, '30d': 30, '90d': 90 };
 
-/** US-28 à US-33 : agrégats calculés en mémoire (volume du MVP : quelques centaines de tickets). */
+/** US-27 à US-32 : agrégats calculés en mémoire (volume du MVP : quelques centaines de tickets). */
+export interface DashboardFilters {
+  categoryId?: string;
+  buildingId?: string;
+}
+
+/** Début de la période (US-27 / US-33) ; `null` = depuis le premier ticket. */
+export function periodStart(period: DashboardPeriod, now = new Date()): Date | null {
+  return period === 'all' ? null : new Date(now.getTime() - PERIOD_DAYS[period] * DAY);
+}
+
 export class DashboardService {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async get(period: DashboardPeriod, granularity: Granularity, now = new Date()): Promise<DashboardResponse> {
+  async get(period: DashboardPeriod, granularity: Granularity, filters: DashboardFilters = {}, now = new Date()): Promise<DashboardResponse> {
     const first = await this.prisma.incident.findFirst({ orderBy: { createdAt: 'asc' }, select: { createdAt: true } });
-    const from =
-      period === 'all'
-        ? new Date((first?.createdAt ?? now).getTime() - (first ? 0 : DAY))
-        : new Date(now.getTime() - PERIOD_DAYS[period] * DAY);
+    const from = periodStart(period, now) ?? new Date((first?.createdAt ?? now).getTime() - (first ? 0 : DAY));
 
     const [tickets, categories, buildings, agents, open, interactions] = await Promise.all([
       this.prisma.incident.findMany({
-        where: { createdAt: { gte: from } },
+        // US-33 : filtres période, catégorie et lieu appliqués à tous les indicateurs de la période.
+        where: { createdAt: { gte: from }, ...(filters.categoryId ? { categoryId: filters.categoryId } : {}), ...(filters.buildingId ? { buildingId: filters.buildingId } : {}) },
         select: {
           status: true,
+          room: true,
           createdAt: true,
           resolvedAt: true,
           reopenCount: true,
@@ -44,7 +53,7 @@ export class DashboardService {
         },
       }),
       this.prisma.category.findMany({ orderBy: { order: 'asc' }, select: { id: true, label: true, labelEn: true } }),
-      this.prisma.building.findMany({ orderBy: { order: 'asc' }, select: { id: true, name: true } }),
+      this.prisma.building.findMany({ orderBy: { order: 'asc' }, select: { id: true, name: true, code: true } }),
       this.prisma.user.findMany({ where: { role: 'AGENT', anonymizedAt: null }, orderBy: { name: 'asc' }, select: { id: true, name: true } }),
       // Charge et alertes : état actuel, quelle que soit la période.
       this.prisma.incident.findMany({
@@ -70,6 +79,18 @@ export class DashboardService {
     const lateOpen = open.filter((t) => isLate(t, t.category.targetHours, now));
     const scores = tickets.flatMap((t) => (t.rating ? [t.rating.score] : []));
 
+    // US-29 : salles les plus signalées.
+    const rooms = new Map<string, { building: { code: string; name: string }; room: string; count: number }>();
+    for (const t of tickets) {
+      const b = buildings.find((x) => x.id === t.buildingId);
+      if (!b) continue;
+      const key = `${b.id}|${t.room.trim().toLowerCase()}`;
+      const entry = rooms.get(key) ?? { building: { code: b.code, name: b.name }, room: t.room.trim(), count: 0 };
+      entry.count++;
+      rooms.set(key, entry);
+    }
+    const byRoom = [...rooms.values()].sort((a, b) => b.count - a.count).slice(0, 8);
+
     const byKind: Record<string, number> = {};
     for (const i of interactions) byKind[i.kind] = (byKind[i.kind] ?? 0) + 1;
 
@@ -90,7 +111,9 @@ export class DashboardService {
       },
       byStatus,
       byCategory: categories.map((c) => ({ ...c, count: perCategory.get(c.id) ?? 0 })).sort((a, b) => b.count - a.count),
-      byBuilding: buildings.map((b) => ({ ...b, count: perBuilding.get(b.id) ?? 0 })).sort((a, b) => b.count - a.count),
+      byBuilding: buildings.map((b) => ({ id: b.id, name: b.name, count: perBuilding.get(b.id) ?? 0 })).sort((a, b) => b.count - a.count),
+      byRoom,
+      filters: { categoryId: filters.categoryId ?? null, buildingId: filters.buildingId ?? null },
       series: timeSeries(tickets, granularity, from, now),
       agents: agents.map((a) => {
         const mine = tickets.filter((t) => t.assignedToId === a.id);

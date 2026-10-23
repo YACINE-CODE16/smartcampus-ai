@@ -32,7 +32,7 @@ export class AdminService {
     };
   }
 
-  /** US-13 / US-33 : agents assignables avec leur charge ouverte. */
+  /** US-13 / US-32 : agents assignables avec leur charge ouverte. */
   async agents(): Promise<AgentDto[]> {
     const agents = await this.prisma.user.findMany({
       where: { role: 'AGENT', anonymizedAt: null },

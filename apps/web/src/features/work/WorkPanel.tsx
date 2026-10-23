@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from 'react';
+import { Bot } from 'lucide-react';
+import { useEffect, useState, type FormEvent } from 'react';
 import {
   allowedTransitions,
   canRequalify,
@@ -13,6 +14,7 @@ import {
   type Referentials,
   type SessionUser,
   type Transition,
+  type TriageSuggestion,
   type Urgency,
 } from '@smartcampus/shared';
 import { ApiRequestError, api } from '../../lib/api';
@@ -40,6 +42,25 @@ export function WorkPanel({ user, incident, refs, agents, onChange }: Props) {
   const [agentId, setAgentId] = useState(incident.assignedTo?.id ?? '');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // US-25 : suggestion de catégorie et d'urgence de l'IA sur chaque nouveau ticket.
+  const [suggestion, setSuggestion] = useState<TriageSuggestion | null>(null);
+  useEffect(() => {
+    if (incident.status !== 'NOUVEAU') return;
+    let cancelled = false;
+    api
+      .post<{ suggestion: TriageSuggestion | null }>('/assistant/triage', { description: incident.description })
+      .then((r) => !cancelled && setSuggestion(r.suggestion))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [incident.id, incident.status, incident.description]);
+  const suggestedCategory = suggestion ? refs?.categories.find((c) => c.slug === suggestion.categorySlug) : undefined;
+  const suggestionDiffers =
+    incident.status === 'NOUVEAU' &&
+    suggestedCategory !== undefined &&
+    (suggestedCategory.id !== incident.category.id || suggestion!.urgency !== incident.urgency);
 
   const ref = refOf(incident);
   const transitions = allowedTransitions(user, ref);
@@ -83,7 +104,7 @@ export function WorkPanel({ user, incident, refs, agents, onChange }: Props) {
     }
   }
 
-  const nothing = !takeable && transitions.length === 0 && !editable && !(agents && !isClosed(incident.status));
+  const nothing = !takeable && transitions.length === 0 && !editable && !(agents && !isClosed(incident.status)) && !suggestionDiffers;
   if (nothing) return null;
 
   return (
@@ -116,6 +137,27 @@ export function WorkPanel({ user, incident, refs, agents, onChange }: Props) {
           </>
         )}
       </div>
+
+      {suggestionDiffers && suggestion && suggestedCategory && (
+        <div className="ai-suggest" role="status">
+          <Bot size={18} strokeWidth={1.75} aria-hidden="true" />
+          <span className="ai-suggest__text">
+            {t('Suggestion de l’assistant :', 'Assistant suggestion:')} <strong>{category(suggestedCategory)}</strong>, {t('urgence', 'urgency')}{' '}
+            {label(URGENCY_LABELS[suggestion.urgency]).toLowerCase()}
+            {!editable && <span className="quiet"> {t('(prenez le ticket en charge pour l’appliquer)', '(take the ticket to apply it)')}</span>}
+          </span>
+          {editable && (
+            <button
+              type="button"
+              className="btn btn--secondary btn--sm"
+              disabled={busy}
+              onClick={() => void run(() => api.patch(`/incidents/${incident.id}`, { categoryId: suggestedCategory.id, urgency: suggestion.urgency }))}
+            >
+              {t('Appliquer', 'Apply')}
+            </button>
+          )}
+        </div>
+      )}
 
       {agents && !isClosed(incident.status) && (
         <form

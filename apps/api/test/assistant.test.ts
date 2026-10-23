@@ -45,7 +45,7 @@ describe('US-21 ticket pré-rempli', () => {
     expect(r.suggestedTicket).toEqual({ categorySlug: 'salle', buildingCode: 'B', room: 'B204', description: 'la porte de la salle B204 est bloquée' });
   });
 
-  it('le ticket créé depuis l’assistant est rattaché à l’échange (US-32)', async () => {
+  it('le ticket créé depuis l’assistant est rattaché à l’échange (US-31)', async () => {
     const r = await ask('alice', 'la porte de la salle B204 est bloquée');
     const refs = await api.json<{ categories: { id: string; slug: string }[]; buildings: { id: string; code: string }[] }>('alice', '/referentials');
     const form = new FormData();

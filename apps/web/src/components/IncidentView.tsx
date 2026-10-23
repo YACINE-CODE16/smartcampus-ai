@@ -1,3 +1,4 @@
+import { FileText } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { ROLE_LABELS, STATUS_LABELS, URGENCY_LABELS, type IncidentDetail, type IncidentEventDto } from '@smartcampus/shared';
@@ -90,7 +91,15 @@ export function IncidentView({ incident: x, actions, aside, showOwner = false, l
               )}
             </p>
           )}
-          {x.hasPhoto && (
+          {x.attachmentKind === 'pdf' && (
+            <p className="incident__file">
+              <a className="btn btn--secondary" href={`/api/incidents/${x.id}/photo`} target="_blank" rel="noreferrer">
+                <FileText size={16} strokeWidth={1.75} aria-hidden="true" />
+                {t('Ouvrir le document joint (PDF)', 'Open the attached document (PDF)')}
+              </a>
+            </p>
+          )}
+          {x.attachmentKind === 'image' && (
             <figure className="incident__photo">
               <a href={`/api/incidents/${x.id}/photo`} target="_blank" rel="noreferrer">
                 <img src={`/api/incidents/${x.id}/photo`} alt={t(`Photo jointe au ticket ${x.ticketNumber}`, `Photo attached to ticket ${x.ticketNumber}`)} loading="lazy" />

@@ -115,7 +115,7 @@ POST /assistant/ask { message, history[] }
 - Le mock : (1) hors périmètre → refus ; (2) intention suivi (`SC-xxxx`, « où en est ») → statuts réels ; (3) passages au-dessus d'un seuil → réponse + source ; (4) sinon ou mot d'intervention (« cassé », « bloqué », « panne »…) → ticket pré-rempli.
 - Bedrock : prompt système versionné (`services/assistant/system-prompt.ts`), sortie JSON identique, guardrail appliqué.
 - Suggestion de qualification (US-25) : `AiAssistant.suggestTriage(description)` → `{ categorySlug, urgency }`.
-- Seuls des agrégats sont visibles par l'admin (US-32) ; le texte des questions n'est pas stocké.
+- Seuls des agrégats sont visibles par l'admin (US-31) ; le texte des questions n'est pas stocké.
 
 ## 8. Front-end
 - React Router ; espaces `/etudiant`, `/agent`, `/admin` ; `/connexion`, `/mentions`.

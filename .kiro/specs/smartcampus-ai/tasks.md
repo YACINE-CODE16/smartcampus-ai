@@ -17,10 +17,10 @@ Un commit par bloc. Les tests existants doivent passer ; chaque nouvelle règle 
 - [x] a7 Front agent : files « Mes tickets » / « Non affectés », détail + actions + notes internes
 - [x] a8 Front admin : liste filtrable, affectation, alertes temps réel, délais cibles
 
-## Bloc b — Dashboard (US-27 à US-33)
+## Bloc b — Dashboard (US-33 à US-32)
 - [x] b1 `kpi.ts` (délai moyen, taux, satisfaction, buckets jour/semaine/mois/année) + tests
 - [x] b2 `GET /admin/dashboard` (volumes, KPI, bâtiments, évolution, charge agents, stats assistant)
-- [x] b3 Filtres avancés + export CSV audité (US-27)
+- [x] b3 Filtres avancés + export CSV audité (US-33)
 - [x] b4 Page dashboard (Recharts)
 
 ## Bloc c — Assistant (US-19 à US-26)

@@ -12,7 +12,7 @@ const HOUR = 3_600_000;
 const ms = (d: Date | string) => new Date(d).getTime();
 
 /**
- * US-29 : délai moyen de résolution en heures = moyenne (dernière résolution − création)
+ * US-28 : délai moyen de résolution en heures = moyenne (dernière résolution − création)
  * des tickets résolus ou fermés (D6). `null` s'il n'y en a aucun.
  */
 export function avgResolutionHours(tickets: KpiTicket[]): number | null {
@@ -21,7 +21,7 @@ export function avgResolutionHours(tickets: KpiTicket[]): number | null {
   return done.reduce((sum, t) => sum + (ms(t.resolvedAt!) - ms(t.createdAt)), 0) / done.length / HOUR;
 }
 
-/** US-29 : taux de résolution = (résolus + fermés) / tickets hors rejetés. */
+/** US-28 : taux de résolution = (résolus + fermés) / tickets hors rejetés. */
 export function resolutionRate(tickets: KpiTicket[]): number | null {
   const considered = tickets.filter((t) => t.status !== 'REJETE');
   if (considered.length === 0) return null;
@@ -29,7 +29,7 @@ export function resolutionRate(tickets: KpiTicket[]): number | null {
 }
 
 /**
- * US-29 : taux de réouverture = tickets contestés au moins une fois / tickets ayant été résolus
+ * US-28 : taux de réouverture = tickets contestés au moins une fois / tickets ayant été résolus
  * (résolus aujourd'hui, ou contestés donc résolus auparavant).
  */
 export function reopenRate(tickets: KpiTicket[]): number | null {
@@ -38,7 +38,7 @@ export function reopenRate(tickets: KpiTicket[]): number | null {
   return everResolved.filter((t) => t.reopenCount > 0).length / everResolved.length;
 }
 
-/** US-12 / US-29 : satisfaction moyenne (1–5). */
+/** US-12 / US-28 : satisfaction moyenne (1–5). */
 export function averageScore(scores: number[]): number | null {
   if (scores.length === 0) return null;
   return scores.reduce((a, b) => a + b, 0) / scores.length;
@@ -66,7 +66,7 @@ function isoWeek(y: number, m: number, day: number): string {
   return `${date.getUTCFullYear()}-W${pad(week)}`;
 }
 
-/** US-31 : clé de regroupement d'une date selon la granularité. */
+/** US-30 : clé de regroupement d'une date selon la granularité. */
 export function bucketKey(date: Date | string, g: Granularity): string {
   const { y, m, day } = parisParts(new Date(date));
   switch (g) {
@@ -88,7 +88,7 @@ export interface SeriesPoint {
 }
 
 /**
- * US-31 : tickets créés et résolus par période, sans trou entre `from` et `to`.
+ * US-30 : tickets créés et résolus par période, sans trou entre `from` et `to`.
  * Un ticket compte comme « résolu » à la date de sa (dernière) résolution.
  */
 export function timeSeries(tickets: KpiTicket[], g: Granularity, from: Date, to: Date): SeriesPoint[] {
@@ -127,7 +127,7 @@ export interface KpiInteraction {
 export const ANSWERED_KINDS = ['faq', 'document', 'ticket_status'] as const;
 
 /**
- * US-32 : part des questions résolues par l'IA = réponses fondées, jugées utiles (👍) et sans
+ * US-31 : part des questions résolues par l'IA = réponses fondées, jugées utiles (👍) et sans
  * ticket créé ensuite / réponses ayant reçu un avis.
  */
 export function aiResolvedRate(items: KpiInteraction[]): number | null {

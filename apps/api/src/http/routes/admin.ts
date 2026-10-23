@@ -7,10 +7,13 @@ import { requestLang } from '../lang';
 import { currentUser, requireRole } from '../middlewares/auth';
 import { parseBody } from '../validation';
 import { listSchema } from './incidents';
+import { periodStart } from '../../services/dashboard';
 
 const dashboardSchema = z.object({
   period: z.enum(DASHBOARD_PERIODS).default('30d'),
   granularity: z.enum(GRANULARITIES).default('day'),
+  categoryId: z.uuid().optional(),
+  buildingId: z.uuid().optional(),
 });
 
 const targetSchema = z.object({
@@ -36,11 +39,25 @@ export function adminRouter(container: Container): Router {
   });
 
   router.get('/admin/dashboard', async (req, res) => {
-    const { period, granularity } = parseBody(dashboardSchema, req.query);
-    res.json(await container.dashboard.get(period, granularity));
+    const { period, granularity, categoryId, buildingId } = parseBody(dashboardSchema, req.query);
+    res.json(await container.dashboard.get(period, granularity, { categoryId, buildingId }));
   });
 
-  /** US-27 : export CSV des tickets filtrés, tracé dans le journal d'audit. */
+  /** US-33 : export CSV des tickets correspondant aux filtres du tableau de bord (tracé dans l'audit). */
+  router.get('/admin/dashboard/export.csv', async (req, res) => {
+    const { period, categoryId, buildingId } = parseBody(dashboardSchema, req.query);
+    const from = periodStart(period);
+    const { csv } = await container.exports.incidentsCsv(
+      currentUser(req),
+      { categoryId, buildingId, from: from?.toISOString() },
+      requestLang(req),
+    );
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="smartcampus-tableau-de-bord-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.send(csv);
+  });
+
+  /** US-33 : export CSV des tickets filtrés, tracé dans le journal d'audit. */
   router.get('/admin/incidents/export.csv', async (req, res) => {
     const { csv } = await container.exports.incidentsCsv(currentUser(req), parseBody(listSchema, req.query), requestLang(req));
     const date = new Date().toISOString().slice(0, 10);
