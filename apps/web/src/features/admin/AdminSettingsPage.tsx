@@ -1,3 +1,5 @@
+import { Check } from 'lucide-react';
+import { PriorityBadge } from '../../components/Badges';
 import { useState } from 'react';
 import { SETTINGS, type CategoryDto } from '@smartcampus/shared';
 import { ApiRequestError, api } from '../../lib/api';
@@ -27,7 +29,7 @@ function TargetRow({ c, onSaved }: { c: CategoryDto; onSaved(): void }) {
     <tr>
       <th scope="row">
         {category(c)}
-        {c.autoPriority === 'CRITIQUE' && <span className="badge badge--prio-critique">⚠ {t('Critique', 'Critical')}</span>}
+        {c.autoPriority === 'CRITIQUE' && <PriorityBadge priority="CRITIQUE" />}
       </th>
       <td>
         <label className="sr-only" htmlFor={`target-${c.id}`}>
@@ -52,7 +54,12 @@ function TargetRow({ c, onSaved }: { c: CategoryDto; onSaved(): void }) {
         <button type="button" className="btn btn--secondary btn--sm" disabled={!dirty || state.kind === 'saving'} onClick={() => void save()}>
           {t('Enregistrer', 'Save')}
         </button>{' '}
-        {state.kind === 'saved' && <span className="ok">✓ {t('Enregistré', 'Saved')}</span>}
+        {state.kind === 'saved' && (
+          <span className="ok">
+            <Check size={14} strokeWidth={2.25} aria-hidden="true" />
+            {t('Enregistré', 'Saved')}
+          </span>
+        )}
         {state.kind === 'error' && <span className="field__error">{state.message}</span>}
       </td>
     </tr>

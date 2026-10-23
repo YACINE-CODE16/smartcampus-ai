@@ -1,3 +1,4 @@
+import { Check, Star } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { canRate, refOf, SETTINGS, type IncidentDetail, type SessionUser } from '@smartcampus/shared';
 import { ApiRequestError, api } from '../../lib/api';
@@ -11,7 +12,7 @@ function Stars({ value, onChange }: { value: number; onChange(v: number): void }
       {[1, 2, 3, 4, 5].map((n) => (
         <label key={n} className={`stars__star ${n <= value ? 'stars__star--on' : ''}`}>
           <input type="radio" name="score" value={n} checked={value === n} onChange={() => onChange(n)} />
-          <span aria-hidden="true">★</span>
+          <Star size={28} strokeWidth={1.5} fill={n <= value ? 'currentColor' : 'none'} aria-hidden="true" />
           <span className="sr-only">{t(`${n} étoile(s)`, `${n} star(s)`)}</span>
         </label>
       ))}
@@ -68,7 +69,8 @@ export function StudentActions({ user, incident, onChange }: { user: SessionUser
           </p>
           <div className="work__buttons">
             <button type="button" className="btn btn--primary" disabled={busy} onClick={() => void run(() => api.post(`/incidents/${incident.id}/transition`, { to: 'FERME' }))}>
-              ✓ {t('Confirmer la résolution', 'Confirm resolution')}
+              <Check size={16} strokeWidth={2.25} aria-hidden="true" />
+              {t('Confirmer la résolution', 'Confirm resolution')}
             </button>
             <button type="button" className="btn btn--danger-outline" disabled={busy} aria-expanded={contesting} onClick={() => setContesting((c) => !c)}>
               {t('Contester', 'Dispute')}
@@ -113,9 +115,14 @@ export function StudentActions({ user, incident, onChange }: { user: SessionUser
 
       {incident.rating && (
         <p className="rating__done">
-          {t('Votre note :', 'Your rating:')} <span aria-hidden="true">{'★'.repeat(incident.rating.score)}{'☆'.repeat(5 - incident.rating.score)}</span>
+          {t('Votre note :', 'Your rating:')}{' '}
+          <span className="rating__stars" aria-hidden="true">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <Star key={n} size={16} strokeWidth={1.5} fill={n <= incident.rating!.score ? 'currentColor' : 'none'} />
+            ))}
+          </span>
           <span className="sr-only">{incident.rating.score} / 5</span>
-          {incident.rating.comment && <> — « {incident.rating.comment} »</>} · {t('merci !', 'thank you!')}
+          {incident.rating.comment && <span className="rating__comment">« {incident.rating.comment} »</span>}
         </p>
       )}
       {error && (

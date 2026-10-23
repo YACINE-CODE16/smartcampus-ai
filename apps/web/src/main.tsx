@@ -5,6 +5,7 @@ import { router } from './app/router';
 import { AuthProvider } from './lib/auth';
 import { I18nProvider } from './lib/i18n';
 import { LiveProvider } from './lib/live';
+import '@fontsource-variable/atkinson-hyperlegible-next';
 import './index.css';
 
 createRoot(document.getElementById('root')!).render(

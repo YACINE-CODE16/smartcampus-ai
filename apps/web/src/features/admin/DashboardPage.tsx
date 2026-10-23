@@ -1,10 +1,11 @@
+import { StatusBadge } from '../../components/Badges';
+import { Clock, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import {
   DASHBOARD_PERIODS,
   GRANULARITIES,
   INCIDENT_STATUSES,
-  STATUS_LABELS,
   type DashboardPeriod,
   type DashboardResponse,
   type Granularity,
@@ -36,12 +37,17 @@ const KIND_LABELS: Record<string, { fr: string; en: string }> = {
   out_of_scope: { fr: 'Hors périmètre', en: 'Out of scope' },
 };
 
+/** Cellule d'indicateur : libellé, valeur, précision. Les cellules forment une seule bande (pas de cartes). */
 function Tile({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: 'critical' | 'late' }) {
   return (
-    <div className={`tile ${tone ? `tile--${tone}` : ''}`}>
-      <p className="tile__label">{label}</p>
-      <p className="tile__value">{value}</p>
-      {hint && <p className="tile__hint">{hint}</p>}
+    <div className={`stat ${tone ? `stat--${tone}` : ''}`}>
+      <p className="stat__label">
+        {tone === 'critical' && <TriangleAlert size={14} strokeWidth={2.25} aria-hidden="true" />}
+        {tone === 'late' && <Clock size={14} strokeWidth={2} aria-hidden="true" />}
+        {label}
+      </p>
+      <p className="stat__value">{value}</p>
+      {hint && <p className="stat__hint">{hint}</p>}
     </div>
   );
 }
@@ -76,7 +82,7 @@ export function DashboardPage() {
       {d && (
         <>
           {/* US-29 + état actuel */}
-          <div className="tiles">
+          <div className="stats panel">
             <Tile label={t('Tickets sur la période', 'Tickets in period')} value={nf.format(d.kpis.total)} />
             <Tile label={t('Délai moyen de résolution', 'Average resolution time')} value={formatHours(d.kpis.avgResolutionHours, lang)} />
             <Tile label={t('Taux de résolution', 'Resolution rate')} value={formatPercent(d.kpis.resolutionRate, lang)} />
@@ -87,10 +93,10 @@ export function DashboardPage() {
               hint={t(`${d.kpis.ratingsCount} note(s)`, `${d.kpis.ratingsCount} rating(s)`)}
             />
             <Link to="/admin/tickets?priority=CRITIQUE" className="tile-link">
-              <Tile label={`⚠ ${t('Critiques ouverts', 'Open critical')}`} value={String(d.kpis.openCritical)} hint={t('maintenant', 'right now')} tone="critical" />
+              <Tile label={t('Critiques ouverts', 'Open critical')} value={String(d.kpis.openCritical)} hint={t('maintenant', 'right now')} tone="critical" />
             </Link>
             <Link to="/admin/tickets?late=true" className="tile-link">
-              <Tile label={`⏱ ${t('En retard', 'Overdue')}`} value={String(d.kpis.late)} hint={t('maintenant', 'right now')} tone="late" />
+              <Tile label={t('En retard', 'Overdue')} value={String(d.kpis.late)} hint={t('maintenant', 'right now')} tone="late" />
             </Link>
           </div>
 
@@ -101,7 +107,7 @@ export function DashboardPage() {
               {INCIDENT_STATUSES.map((s) => (
                 <li key={s}>
                   <Link to={`/admin/tickets?status=${s}`}>
-                    <span className={`badge badge--${s.toLowerCase()}`}>{label(STATUS_LABELS[s])}</span>
+                    <StatusBadge status={s} />
                     <strong>{d.byStatus[s]}</strong>
                   </Link>
                 </li>
@@ -182,8 +188,22 @@ export function DashboardPage() {
                           <Link to={`/admin/tickets?assignedToId=${a.id}`}>{a.name}</Link>
                         </th>
                         <td>{a.open}</td>
-                        <td>{a.critical > 0 ? <span className="badge badge--prio-critique">⚠ {a.critical}</span> : 0}</td>
-                        <td>{a.late > 0 ? <span className="badge badge--late">{a.late}</span> : 0}</td>
+                        <td>{a.critical > 0 ? (
+                            <span className="critical">
+                              <TriangleAlert size={14} strokeWidth={2.25} aria-hidden="true" />
+                              {a.critical}
+                            </span>
+                          ) : (
+                            0
+                          )}</td>
+                        <td>{a.late > 0 ? (
+                            <span className="late">
+                              <Clock size={14} strokeWidth={2} aria-hidden="true" />
+                              {a.late}
+                            </span>
+                          ) : (
+                            0
+                          )}</td>
                         <td>{a.resolved}</td>
                         <td>{formatHours(a.avgResolutionHours, lang)}</td>
                       </tr>
@@ -197,10 +217,10 @@ export function DashboardPage() {
             <section className="card">
               <h2>{t('Assistant IA', 'AI assistant')}</h2>
               <p className="muted chart-card__sub">{t('Statistiques agrégées, sans le contenu des questions.', 'Aggregated statistics, without question content.')}</p>
-              <div className="tiles tiles--small">
+              <div className="stats stats--inline">
                 <Tile label={t('Questions', 'Questions')} value={String(d.assistant.questions)} />
                 <Tile label={t('Résolues par l’IA', 'Solved by AI')} value={formatPercent(d.assistant.aiResolvedRate, lang)} />
-                <Tile label="👍 / 👎" value={`${d.assistant.thumbsUp} / ${d.assistant.thumbsDown}`} />
+                <Tile label={t('Avis utiles / pas utiles', 'Helpful / not helpful')} value={`${d.assistant.thumbsUp} / ${d.assistant.thumbsDown}`} />
                 <Tile label={t('Tickets créés via l’assistant', 'Tickets from assistant')} value={String(d.assistant.ticketsCreated)} />
               </div>
               {d.assistant.questions > 0 && (

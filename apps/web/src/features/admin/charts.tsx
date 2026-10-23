@@ -3,27 +3,27 @@ import { Bar, BarChart, CartesianGrid, LabelList, Legend, Line, LineChart, Respo
 import { useI18n } from '../../lib/i18n';
 
 /**
- * Palette validée (scripts/validate_palette.js, mode clair) : bleu / orange, slots 1–2 de la palette de référence.
+ * Couleurs des séries tirées des tokens (DESIGN.md), validées en clair et en sombre par validate_palette.js.
  * Les textes restent en encre neutre ; seule la marque porte la couleur.
  */
 const CHART = {
-  series1: '#2a78d6',
-  series2: '#eb6834',
-  grid: '#e7e7e4',
-  axis: '#52514e',
-  text: '#0f172a',
+  series1: 'var(--chart-1)',
+  series2: 'var(--chart-2)',
+  grid: 'var(--chart-grid)',
+  axis: 'var(--ink-2)',
+  text: 'var(--ink)',
 } as const;
 
 const tooltipStyle = {
-  contentStyle: { borderRadius: 8, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgb(15 23 42 / 8%)', fontSize: 13 },
-  cursor: { fill: 'rgb(42 120 214 / 6%)' },
+  contentStyle: { borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--ink)', boxShadow: 'var(--shadow-pop)', fontSize: 13 },
+  cursor: { fill: 'var(--surface-2)' },
 };
 
 /** Carte de graphique : titre, graphique, puis tableau de données dépliable (accessibilité). */
 export function ChartCard({ title, subtitle, table, children }: { title: string; subtitle?: string; table: ReactNode; children: ReactNode }) {
   const { t } = useI18n();
   return (
-    <section className="card chart-card">
+    <section className="panel chart-card">
       <h2>{title}</h2>
       {subtitle && <p className="muted chart-card__sub">{subtitle}</p>}
       {children}
@@ -67,8 +67,8 @@ export function TrendChart({ data, createdLabel, resolvedLabel }: { data: { buck
           <Tooltip {...tooltipStyle} cursor={{ stroke: CHART.axis, strokeWidth: 1 }} />
           {/* Le texte de la légende reste en encre neutre ; seul le trait porte la couleur de la série. */}
           <Legend iconType="plainline" wrapperStyle={{ fontSize: 13 }} formatter={(value: string) => <span style={{ color: CHART.text }}>{value}</span>} />
-          <Line type="linear" dataKey="created" name={createdLabel} stroke={CHART.series1} strokeWidth={2} dot={false} activeDot={{ r: 5, stroke: '#fff', strokeWidth: 2 }} isAnimationActive={false} />
-          <Line type="linear" dataKey="resolved" name={resolvedLabel} stroke={CHART.series2} strokeWidth={2} dot={false} activeDot={{ r: 5, stroke: '#fff', strokeWidth: 2 }} isAnimationActive={false} />
+          <Line type="linear" dataKey="created" name={createdLabel} stroke={CHART.series1} strokeWidth={2} dot={false} activeDot={{ r: 5, stroke: 'var(--surface)', strokeWidth: 2 }} isAnimationActive={false} />
+          <Line type="linear" dataKey="resolved" name={resolvedLabel} stroke={CHART.series2} strokeWidth={2} dot={false} activeDot={{ r: 5, stroke: 'var(--surface)', strokeWidth: 2 }} isAnimationActive={false} />
         </LineChart>
       </ResponsiveContainer>
     </div>

@@ -1,3 +1,4 @@
+import { BellRing, Clock, TriangleAlert, X } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import type { AlertsResponse } from '@smartcampus/shared';
@@ -25,21 +26,24 @@ export function AlertsBanner() {
     <div className="alerts" role="status" aria-live="polite">
       {flash && (
         <p className="alerts__flash">
-          🔔 {flash}{' '}
-          <button type="button" className="btn btn--ghost btn--sm" onClick={() => setFlash(null)} aria-label={t('Fermer', 'Dismiss')}>
-            ✕
+          <BellRing size={16} strokeWidth={2} aria-hidden="true" />
+          {flash}
+          <button type="button" className="icon-btn icon-btn--sm" onClick={() => setFlash(null)} aria-label={t('Fermer', 'Dismiss')}>
+            <X size={16} aria-hidden="true" />
           </button>
         </p>
       )}
       <div className="alerts__items">
         {data.critical.length > 0 && (
           <Link to="/admin/tickets?priority=CRITIQUE" className="alerts__item alerts__item--critical">
-            ⚠ {data.critical.length} {t('ticket(s) critique(s) ouvert(s)', 'open critical ticket(s)')}
+            <TriangleAlert size={16} strokeWidth={2.25} aria-hidden="true" />
+            {data.critical.length} {t('ticket(s) critique(s) ouvert(s)', 'open critical ticket(s)')}
           </Link>
         )}
         {data.late.length > 0 && (
           <Link to="/admin/tickets?late=true" className="alerts__item alerts__item--late">
-            ⏱ {data.late.length} {t('ticket(s) en retard', 'overdue ticket(s)')}
+            <Clock size={16} strokeWidth={2} aria-hidden="true" />
+            {data.late.length} {t('ticket(s) en retard', 'overdue ticket(s)')}
           </Link>
         )}
       </div>

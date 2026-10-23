@@ -4,6 +4,7 @@ import { ROLE_LABELS, STATUS_LABELS, URGENCY_LABELS, type IncidentDetail, type I
 import { formatDateTime } from '../lib/format';
 import { useI18n } from '../lib/i18n';
 import { LateBadge, PriorityBadge, StatusBadge } from './Badges';
+import { LocationPlate } from './LocationPlate';
 
 /** US-09 : historique de traitement, du plus ancien au plus récent. */
 export function Timeline({ events }: { events: IncidentEventDto[] }) {
@@ -28,14 +29,13 @@ export function Timeline({ events }: { events: IncidentEventDto[] }) {
     <ol className="timeline">
       {events.map((e) => (
         <li key={e.id} className={`timeline__item timeline__item--${(e.toStatus ?? 'nouveau').toLowerCase()}`}>
-          <div className="timeline__head">
-            <strong>{title(e)}</strong>
+          <p className="timeline__title">{title(e)}</p>
+          <p className="timeline__meta">
+            <span>{e.author?.name ?? label(ROLE_LABELS.SYSTEM)}</span>
+            <span className="timeline__role">{label(ROLE_LABELS[e.authorRole])}</span>
             <time dateTime={e.createdAt}>{formatDateTime(e.createdAt, lang)}</time>
-          </div>
-          <p className="timeline__author">
-            {e.author?.name ?? label(ROLE_LABELS.SYSTEM)} · {label(ROLE_LABELS[e.authorRole])}
           </p>
-          {e.comment && e.type !== 'ASSIGN' && <p className="timeline__comment">« {text(e.comment)} »</p>}
+          {e.comment && e.type !== 'ASSIGN' && <blockquote className="timeline__comment">{text(e.comment)}</blockquote>}
         </li>
       ))}
     </ol>
@@ -59,55 +59,33 @@ export function IncidentView({ incident: x, actions, aside, showOwner = false, l
   return (
     <article className="incident">
       <header className="incident__head">
-        <p className="incident__number">{x.ticketNumber}</p>
-        <h1>{x.title}</h1>
-        <div className="incident__badges">
-          <StatusBadge status={x.status} />
-          <PriorityBadge priority={x.priority} />
-          {x.isLate && <LateBadge />}
+        <LocationPlate building={x.building} room={x.room} />
+        <div className="incident__heading">
+          <p className="incident__number">{x.ticketNumber}</p>
+          <h1>
+            {category(x.category)} <span className="incident__where">{x.building.name}</span>
+          </h1>
+          <div className="incident__badges">
+            <StatusBadge status={x.status} />
+            <PriorityBadge priority={x.priority} />
+            {x.isLate && <LateBadge />}
+          </div>
         </div>
       </header>
 
       {actions}
 
       <div className="incident__grid">
-        <section className="card">
-          <h2>{t('Détails', 'Details')}</h2>
-          <dl className="facts">
-            <dt>{t('Type', 'Type')}</dt>
-            <dd>{category(x.category)}</dd>
-            <dt>{t('Lieu', 'Location')}</dt>
-            <dd>
-              {x.building.name} — {x.room}
-            </dd>
-            <dt>{t('Urgence ressentie', 'Perceived urgency')}</dt>
-            <dd>{label(URGENCY_LABELS[x.urgency])}</dd>
-            {showOwner && (
-              <>
-                <dt>{t('Signalé par', 'Reported by')}</dt>
-                <dd>{x.owner.name}</dd>
-              </>
-            )}
-            <dt>{t('Créé le', 'Created on')}</dt>
-            <dd>{formatDateTime(x.createdAt, lang)}</dd>
-            <dt>{t('Agent affecté', 'Assigned agent')}</dt>
-            <dd>{x.assignedTo?.name ?? t('Pas encore affecté', 'Not assigned yet')}</dd>
-            {x.reopenCount > 0 && (
-              <>
-                <dt>{t('Réouvertures', 'Reopened')}</dt>
-                <dd>{x.reopenCount}</dd>
-              </>
-            )}
-          </dl>
-          <h3 className="incident__subtitle">{t('Description', 'Description')}</h3>
+        <section className="panel">
+          <h2 className="panel__title">{t('Description', 'Description')}</h2>
           <p className="incident__description">{text(x.description)}</p>
           {x.rejectionReason && (
-            <p className="alert alert--error">
-              <strong>{t('Motif du rejet :', 'Rejection reason:')}</strong> {text(x.rejectionReason)}
+            <p className="callout callout--danger">
+              <strong>{t('Motif du rejet', 'Rejection reason')}</strong> {text(x.rejectionReason)}
               {x.mergedInto && linkBase && (
                 <>
                   {' '}
-                  <Link to={`${linkBase}/${x.mergedInto.id}`}>{t('Voir le ticket principal', 'See main ticket')}</Link>
+                  <Link to={`${linkBase}/${x.mergedInto.id}`}>{t('Ouvrir le ticket principal', 'Open the main ticket')}</Link>
                 </>
               )}
             </p>
@@ -119,11 +97,43 @@ export function IncidentView({ incident: x, actions, aside, showOwner = false, l
               </a>
             </figure>
           )}
+          <dl className="facts">
+            <div>
+              <dt>{t('Lieu', 'Location')}</dt>
+              <dd>
+                {x.building.name}, {x.room}
+              </dd>
+            </div>
+            <div>
+              <dt>{t('Urgence ressentie', 'Perceived urgency')}</dt>
+              <dd>{label(URGENCY_LABELS[x.urgency])}</dd>
+            </div>
+            {showOwner && (
+              <div>
+                <dt>{t('Signalé par', 'Reported by')}</dt>
+                <dd>{x.owner.name}</dd>
+              </div>
+            )}
+            <div>
+              <dt>{t('Créé le', 'Created on')}</dt>
+              <dd>{formatDateTime(x.createdAt, lang)}</dd>
+            </div>
+            <div>
+              <dt>{t('Agent', 'Agent')}</dt>
+              <dd>{x.assignedTo?.name ?? t('Pas encore affecté', 'Not assigned yet')}</dd>
+            </div>
+            {x.reopenCount > 0 && (
+              <div>
+                <dt>{t('Réouvertures', 'Reopened')}</dt>
+                <dd>{x.reopenCount}</dd>
+              </div>
+            )}
+          </dl>
         </section>
 
         <div className="incident__side">
-          <section className="card">
-            <h2>{t('Historique', 'History')}</h2>
+          <section className="panel">
+            <h2 className="panel__title">{t('Historique', 'History')}</h2>
             <Timeline events={x.events} />
           </section>
           {aside}

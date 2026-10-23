@@ -1,3 +1,4 @@
+import { EyeOff } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { SETTINGS, type InternalNoteDto } from '@smartcampus/shared';
 import { ApiRequestError, api } from '../../lib/api';
@@ -32,9 +33,13 @@ export function InternalNotes({ incidentId }: { incidentId: string }) {
   }
 
   return (
-    <section className="card notes">
+    <section className="panel notes">
       <h2>
-        {t('Notes internes', 'Internal notes')} <span className="notes__lock">🔒 {t('non visibles par l’étudiant', 'hidden from the student')}</span>
+        {t('Notes internes', 'Internal notes')}
+        <span className="notes__lock">
+          <EyeOff size={14} strokeWidth={2} aria-hidden="true" />
+          {t('Invisibles pour l’étudiant', 'Hidden from the student')}
+        </span>
       </h2>
       {data && data.length === 0 && <p className="muted">{t('Aucune note pour le moment.', 'No notes yet.')}</p>}
       <ul className="notes__list">
@@ -42,7 +47,8 @@ export function InternalNotes({ incidentId }: { incidentId: string }) {
           <li key={n.id}>
             <p className="notes__body">{n.body}</p>
             <p className="notes__meta">
-              {n.author.name} · <time dateTime={n.createdAt}>{formatDateTime(n.createdAt, lang)}</time>
+              <span>{n.author.name}</span>
+              <time dateTime={n.createdAt}>{formatDateTime(n.createdAt, lang)}</time>
             </p>
           </li>
         ))}

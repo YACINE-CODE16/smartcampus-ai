@@ -1,6 +1,6 @@
 import { useSearchParams } from 'react-router';
 import { CLOSED_STATUSES, PRIORITY_RANK, type IncidentSummary } from '@smartcampus/shared';
-import { TicketList } from '../../components/TicketList';
+import { TicketTable } from '../../components/TicketTable';
 import { useI18n } from '../../lib/i18n';
 import { useLive } from '../../lib/live';
 import { useApi } from '../../lib/useApi';
@@ -40,11 +40,13 @@ export function AgentHomePage() {
           {t('Non affectés', 'Unassigned')} <span className="count">{queueOpen.length}</span>
         </button>
       </div>
-      {current.error && <p className="alert alert--error">{current.error.message}</p>}
+      {current.error && <p className="callout callout--danger">{current.error.message}</p>}
       {current.loading && !current.data ? (
         <p className="muted">{t('Chargement…', 'Loading…')}</p>
       ) : (
-        <TicketList
+        <TicketTable
+          variant="work"
+          caption={tab === 'mine' ? t('Mes tickets', 'My tickets') : t('Tickets non affectés', 'Unassigned tickets')}
           items={tab === 'mine' ? mineOpen : queueOpen}
           linkBase="/agent/tickets"
           empty={tab === 'mine' ? t('Aucun ticket ne vous est affecté.', 'No tickets assigned to you.') : t('Aucun ticket en attente.', 'No tickets waiting.')}

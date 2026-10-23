@@ -1,3 +1,4 @@
+import { Download } from 'lucide-react';
 import { useSearchParams } from 'react-router';
 import {
   INCIDENT_STATUSES,
@@ -8,7 +9,7 @@ import {
   type IncidentSummary,
   type Referentials,
 } from '@smartcampus/shared';
-import { TicketList } from '../../components/TicketList';
+import { TicketTable } from '../../components/TicketTable';
 import { query } from '../../lib/api';
 import { useI18n } from '../../lib/i18n';
 import { useLive } from '../../lib/live';
@@ -42,11 +43,12 @@ export function AdminTicketsPage() {
         </h1>
         {/* US-27 : export des tickets affichés (même filtres), tracé dans le journal d'audit */}
         <a className="btn btn--secondary" href={`/api/admin/incidents/export.csv${qs}`} download>
-          ⬇ {t('Exporter CSV', 'Export CSV')}
+          <Download size={16} strokeWidth={1.75} aria-hidden="true" />
+          {t('Exporter en CSV', 'Export to CSV')}
         </a>
       </div>
 
-      <form className="filters card" role="search" onSubmit={(e) => e.preventDefault()}>
+      <form className="filters panel" role="search" onSubmit={(e) => e.preventDefault()}>
         <div className="field">
           <label htmlFor="f-q">{t('Recherche', 'Search')}</label>
           <input id="f-q" type="search" value={filters.q} placeholder={t('SC-0042, salle, titre…', 'SC-0042, room, title…')} onChange={(e) => set('q', e.target.value)} />
@@ -111,7 +113,7 @@ export function AdminTicketsPage() {
           {t('En retard uniquement', 'Overdue only')}
         </label>
         {qs && (
-          <button type="button" className="btn btn--ghost btn--sm" onClick={() => setParams({}, { replace: true })}>
+          <button type="button" className="btn btn--quiet btn--sm" onClick={() => setParams({}, { replace: true })}>
             {t('Réinitialiser', 'Reset')}
           </button>
         )}
@@ -121,7 +123,13 @@ export function AdminTicketsPage() {
       {loading && !data ? (
         <p className="muted">{t('Chargement…', 'Loading…')}</p>
       ) : (
-        <TicketList items={data ?? []} linkBase="/admin/tickets" empty={t('Aucun ticket ne correspond aux filtres.', 'No tickets match the filters.')} />
+        <TicketTable
+          variant="work"
+          caption={t('Tickets filtrés', 'Filtered tickets')}
+          items={data ?? []}
+          linkBase="/admin/tickets"
+          empty={t('Aucun ticket ne correspond à ces filtres.', 'No tickets match these filters.')}
+        />
       )}
     </section>
   );

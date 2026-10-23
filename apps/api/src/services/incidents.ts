@@ -21,7 +21,7 @@ import type { NotificationService } from './notifications';
 
 export const incidentInclude = {
   category: { select: { id: true, label: true, labelEn: true, targetHours: true } },
-  building: { select: { id: true, name: true } },
+  building: { select: { id: true, name: true, code: true } },
   owner: { select: { id: true, name: true } },
   assignedTo: { select: { id: true, name: true } },
 } satisfies Prisma.IncidentInclude;
@@ -70,12 +70,22 @@ function detectImageType(buf: Buffer): 'jpg' | 'png' | null {
   return null;
 }
 
+const EXCERPT = 110;
+
+/** Extrait coupé sur un mot ; un message bilingue (description anonymisée) est gardé entier. */
+function excerpt(text: string): string {
+  if (text.includes('\u001f') || text.length <= EXCERPT) return text;
+  const cut = text.slice(0, EXCERPT);
+  return `${cut.slice(0, Math.max(cut.lastIndexOf(' '), EXCERPT - 20)).trimEnd()}…`;
+}
+
 export function toSummary(row: IncidentRow, now = new Date()): IncidentSummary {
   return {
     id: row.id,
     number: row.number,
     ticketNumber: formatTicketNumber(row.number),
     title: row.title,
+    excerpt: excerpt(row.description),
     status: row.status,
     urgency: row.urgency,
     priority: row.priority,

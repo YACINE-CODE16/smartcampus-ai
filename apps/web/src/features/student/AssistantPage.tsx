@@ -1,3 +1,4 @@
+import { Info, SendHorizontal, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import type { AssistantMessageInput, AssistantReplyDto, Referentials } from '@smartcampus/shared';
@@ -95,7 +96,7 @@ export function AssistantPage() {
       <div className="page-head">
         <h1>{t('Assistant IA', 'AI assistant')}</h1>
         {messages.length > 0 && (
-          <button type="button" className="btn btn--ghost btn--sm" onClick={() => setMessages([])}>
+          <button type="button" className="btn btn--quiet btn--sm" onClick={() => setMessages([])}>
             {t('Nouvelle conversation', 'New conversation')}
           </button>
         )}
@@ -103,7 +104,7 @@ export function AssistantPage() {
 
       {/* US-26 : mention IA permanente */}
       <p className="ai-banner" role="note">
-        🤖{' '}
+        <Info size={18} strokeWidth={1.75} aria-hidden="true" />
         {t(
           'Vous échangez avec une IA. Elle répond uniquement à partir de la FAQ du campus et de vos propres tickets ; ses réponses peuvent être incomplètes.',
           'You are chatting with an AI. It only answers from the campus FAQ and your own tickets; its answers may be incomplete.',
@@ -155,15 +156,15 @@ export function AssistantPage() {
               {r.sources.length > 0 && (
                 <p className="bubble__source">
                   {t('Source :', 'Source:')}{' '}
-                  {r.sources.map((src) => `${src.type === 'faq' ? 'FAQ' : t('Document', 'Document')} — ${src.title}`).join(' · ')}
+                  {r.sources.map((src) => `${src.type === 'faq' ? 'FAQ' : t('document', 'document')} « ${src.title} »`).join(', ')}
                 </p>
               )}
               {r.kind === 'ticket_status' && (
                 <p className="bubble__source">
                   {t('Source : vos tickets', 'Source: your tickets')}
-                  {r.tickets?.map((x) => (
+                  {r.tickets?.map((x, i) => (
                     <span key={x.id}>
-                      {' · '}
+                      {i === 0 ? ' : ' : ', '}
                       <Link to={`/etudiant/tickets/${x.id}`}>{x.ticketNumber}</Link>
                     </span>
                   ))}
@@ -196,10 +197,12 @@ export function AssistantPage() {
               {/* US-23 : avis sur la réponse */}
               <div className="feedback" role="group" aria-label={t('Cette réponse vous a-t-elle aidé ?', 'Was this answer helpful?')}>
                 <button type="button" className="feedback__btn" aria-pressed={m.feedback === true} onClick={() => void rate(m.id, true, m.feedback)}>
-                  👍 <span className="sr-only">{t('Utile', 'Helpful')}</span>
+                  <ThumbsUp size={16} strokeWidth={1.75} aria-hidden="true" />
+                  <span className="sr-only">{t('Utile', 'Helpful')}</span>
                 </button>
                 <button type="button" className="feedback__btn" aria-pressed={m.feedback === false} onClick={() => void rate(m.id, false, m.feedback)}>
-                  👎 <span className="sr-only">{t('Pas utile', 'Not helpful')}</span>
+                  <ThumbsDown size={16} strokeWidth={1.75} aria-hidden="true" />
+                  <span className="sr-only">{t('Pas utile', 'Not helpful')}</span>
                 </button>
               </div>
             </div>
@@ -222,6 +225,7 @@ export function AssistantPage() {
           onChange={(e) => setInput(e.target.value)}
         />
         <button type="submit" className="btn btn--primary" disabled={busy || input.trim().length < 2}>
+          <SendHorizontal size={16} strokeWidth={2} aria-hidden="true" />
           {t('Envoyer', 'Send')}
         </button>
       </form>

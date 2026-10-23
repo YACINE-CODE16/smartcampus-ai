@@ -1,3 +1,4 @@
+import { LocationPlate } from '../../components/LocationPlate';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router';
 import { ROLE_HOME, ROLE_LABELS, type DemoAccount } from '@smartcampus/shared';
@@ -42,7 +43,20 @@ export function LoginPage() {
 
   return (
     <div className="login">
-      <section className="card login__card">
+      <section className="login__intro" aria-hidden="true">
+        <LocationPlate building={{ code: 'B', name: 'Bâtiment B' }} room="204" size="lg" />
+        <p className="login__pitch">
+          {t('Une salle fermée, un équipement en panne, le wifi coupé ?', 'A locked room, broken equipment, no Wi-Fi?')}
+        </p>
+        <p className="login__sub">
+          {t(
+            'Signalez-le en deux minutes depuis votre téléphone et suivez chaque étape jusqu’à la résolution.',
+            'Report it in two minutes from your phone and follow every step until it is fixed.',
+          )}
+        </p>
+      </section>
+
+      <section className="panel login__card">
         <h1 className="login__title">{t('Connexion école', 'School sign-in')}</h1>
         <p className="muted">{t("Utilisez votre compte école ESIEA. Aucune création de compte n'est nécessaire.", 'Use your ESIEA school account. No sign-up needed.')}</p>
 
@@ -80,10 +94,9 @@ export function LoginPage() {
           </button>
         </form>
         <p className="hint">{t('SSO école simulé pour la démonstration.', 'School SSO simulated for the demo.')}</p>
-      </section>
 
       {demo.accounts.length > 0 && demo.password && (
-        <section className="card login__demo" aria-labelledby="demo-title">
+        <div className="login__demo" aria-labelledby="demo-title">
           <h2 id="demo-title">{t('Comptes de démonstration', 'Demo accounts')}</h2>
           <ul className="demo-list">
             {demo.accounts.map((a) => (
@@ -96,8 +109,9 @@ export function LoginPage() {
               </li>
             ))}
           </ul>
-        </section>
+        </div>
       )}
+      </section>
     </div>
   );
 }

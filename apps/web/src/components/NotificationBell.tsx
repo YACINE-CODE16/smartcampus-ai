@@ -1,3 +1,4 @@
+import { Bell } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { notificationText, type NotificationDto, type NotificationList, type Role } from '@smartcampus/shared';
@@ -62,7 +63,7 @@ export function NotificationBell({ role }: { role: Role }) {
     <div className="bell" ref={panel}>
       <button
         type="button"
-        className="bell__btn"
+        className="icon-btn bell__btn"
         aria-expanded={open}
         aria-haspopup="true"
         aria-label={t(`Notifications, ${unread} non lue(s)`, `Notifications, ${unread} unread`)}
@@ -71,14 +72,15 @@ export function NotificationBell({ role }: { role: Role }) {
           void load();
         }}
       >
-        🔔{unread > 0 && <span className="bell__count">{unread > 99 ? '99+' : unread}</span>}
+        <Bell size={18} strokeWidth={1.75} aria-hidden="true" />
+        {unread > 0 && <span className="bell__count">{unread > 99 ? '99+' : unread}</span>}
       </button>
       {open && (
         <div className="bell__panel" role="dialog" aria-label={t('Notifications', 'Notifications')}>
           <div className="bell__head">
             <strong>{t('Notifications', 'Notifications')}</strong>
             {unread > 0 && (
-              <button type="button" className="btn btn--ghost btn--sm" onClick={() => void readAll()}>
+              <button type="button" className="btn btn--quiet btn--sm" onClick={() => void readAll()}>
                 {t('Tout marquer comme lu', 'Mark all as read')}
               </button>
             )}

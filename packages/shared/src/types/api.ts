@@ -78,11 +78,14 @@ export interface IncidentSummary {
   /** `SC-0001` */
   ticketNumber: string;
   title: string;
+  /** Début de la description (110 caractères), pour reconnaître un ticket dans une liste. */
+  excerpt: string;
   status: IncidentStatus;
   urgency: Urgency;
   priority: Priority;
   category: CategoryRef;
-  building: { id: string; name: string };
+  /** `code` : A, B, C, BIB, RU… affiché sur la plaque de lieu. */
+  building: { id: string; name: string; code: string };
   room: string;
   owner: PersonRef;
   assignedTo: PersonRef | null;

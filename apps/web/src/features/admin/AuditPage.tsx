@@ -20,14 +20,14 @@ function details(e: AuditEntryDto, t: (fr: string, en: string) => string): strin
     case 'ROLE_CHANGE':
       return `${String(d.from)} → ${String(d.to)}`;
     case 'REJECT':
-      return `${String(d.ticket)} · ${String(d.reason ?? '').split('\u001f')[0]}`;
+      return `${String(d.ticket)} : ${String(d.reason ?? '').split('\u001f')[0]}`;
     case 'MERGE':
       return `${String(d.duplicate)} → ${String(d.target)}`;
     case 'DATA_DELETION':
       return t(`${String(d.tickets)} ticket(s), ${String(d.photos)} photo(s)`, `${String(d.tickets)} ticket(s), ${String(d.photos)} photo(s)`);
     case 'EXPORT': {
       const filters = Object.entries((d.filters ?? {}) as Record<string, unknown>).map(([k, v]) => `${k}=${String(v)}`);
-      return `${String(d.count)} ${t('ligne(s)', 'row(s)')}${filters.length ? ` · ${filters.join(', ')}` : ''}`;
+      return `${String(d.count)} ${t('ligne(s)', 'row(s)')}${filters.length ? ` (${filters.join(', ')})` : ''}`;
     }
   }
 }
@@ -54,7 +54,7 @@ export function AuditPage() {
         </select>
       </div>
       {error && <p className="alert alert--error">{error.message}</p>}
-      {data && data.length === 0 && <p className="card muted">{t('Aucune entrée.', 'No entries.')}</p>}
+      {data && data.length === 0 && <p className="panel empty-state">{t('Aucune entrée.', 'No entries.')}</p>}
       {data && data.length > 0 && (
         <TableWrap label={t('Journal d’audit', 'Audit log')}>
           <table className="table table--compact">

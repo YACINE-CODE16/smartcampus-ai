@@ -1,3 +1,5 @@
+import { Bot, CircleCheck, ShieldCheck } from 'lucide-react';
+import { StatusBadge } from '../../components/Badges';
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import {
@@ -250,15 +252,13 @@ export function ReportPage() {
   if (created) {
     return (
       <section className="card confirm" aria-live="polite">
-        <p className="confirm__icon" aria-hidden="true">
-          ✓
-        </p>
+        <CircleCheck className="confirm__icon" size={40} strokeWidth={1.75} aria-hidden="true" />
         <h1>{t('Signalement envoyé', 'Report sent')}</h1>
         <p>
           {t('Numéro de ticket', 'Ticket number')} <strong className="confirm__number">{created.ticketNumber}</strong>
         </p>
         <p>
-          {t('Statut :', 'Status:')} <span className="badge badge--nouveau">{label(STATUS_LABELS[created.status])}</span>
+          {t('Statut :', 'Status:')} <StatusBadge status={created.status} />
         </p>
         {created.priority === 'CRITIQUE' && (
           <p className="alert alert--warning">
@@ -298,7 +298,7 @@ export function ReportPage() {
           <span>
             {t('Brouillon restauré. La photo n’est pas conservée dans le brouillon.', 'Draft restored. The photo is not kept in drafts.')}
           </span>
-          <button type="button" className="btn btn--ghost btn--sm" onClick={clearDraft}>
+          <button type="button" className="btn btn--quiet btn--sm" onClick={clearDraft}>
             {t('Effacer le brouillon', 'Discard draft')}
           </button>
         </div>
@@ -391,7 +391,7 @@ export function ReportPage() {
             <ul>
               {similarShown.map((x) => (
                 <li key={x.ticketNumber}>
-                  {x.ticketNumber} — {x.title} · {label(STATUS_LABELS[x.status])} · {formatAgo(x.createdAt, lang)}
+                  <strong>{x.ticketNumber}</strong> {x.title}, {label(STATUS_LABELS[x.status]).toLowerCase()}, {formatAgo(x.createdAt, lang)}
                 </li>
               ))}
             </ul>
@@ -424,8 +424,10 @@ export function ReportPage() {
           )}
           {showSuggestion && (
             <div className="ai-suggest" role="status">
-              <span>
-                ✨ {t('Suggestion IA :', 'AI suggestion:')} <strong>{category(suggestedCategory)}</strong> · {label(URGENCY_LABELS[suggestion.urgency])}
+              <Bot size={18} strokeWidth={1.75} aria-hidden="true" />
+              <span className="ai-suggest__text">
+                {t('Suggestion de l’assistant :', 'Assistant suggestion:')} <strong>{category(suggestedCategory)}</strong>,{' '}
+                {t('urgence', 'urgency')} {label(URGENCY_LABELS[suggestion.urgency]).toLowerCase()}
               </span>
               <button type="button" className="btn btn--secondary btn--sm" onClick={applySuggestion}>
                 {t('Appliquer', 'Apply')}
@@ -476,7 +478,7 @@ export function ReportPage() {
         </div>
 
         <p className="notice" role="note">
-          🔒{' '}
+          <ShieldCheck size={18} strokeWidth={1.75} aria-hidden="true" />
           {t(
             "Ne photographiez pas de personnes et n'indiquez pas de données personnelles dans la description.",
             'Do not photograph people and do not include personal data in the description.',
