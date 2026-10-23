@@ -73,7 +73,7 @@ const params = () => [
   `SesSender=${config.sesSender ?? ''}`,
   `MailRedirectTo=${config.sesRedirectTo ?? ''}`,
   `AiDriver=${process.env.AI_DRIVER ?? 'bedrock'}`,
-];
+].filter((p) => !p.endsWith('=')); // SAM refuse « Cle= » : un paramètre vide prend la valeur par défaut du template ('')
 const deploy = () =>
   sam([
     'deploy', '--template-file', '.aws-sam/build/template.yaml', '--stack-name', STACK, '--region', REGION,
