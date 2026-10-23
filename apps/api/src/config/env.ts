@@ -34,8 +34,6 @@ const schema = z.object({
   BEDROCK_MODEL_ID: z.string().default('us.amazon.nova-lite-v1:0'),
   BEDROCK_GUARDRAIL_ID: z.string().optional(),
   BEDROCK_GUARDRAIL_VERSION: z.string().default('DRAFT'),
-  /** Dossier du front buildé à servir (optionnel, sinon le front est servi par Vite ou nginx). */
-  WEB_DIST_DIR: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);

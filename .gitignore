@@ -33,3 +33,5 @@ apps/api/storage/
 .env
 .env.*
 !.env.example
+!.env.prod.example
+!.env.local-test

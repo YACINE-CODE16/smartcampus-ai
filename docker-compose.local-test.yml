@@ -1,0 +1,42 @@
+# Test local de la pile de production, sans TLS et avec un PostgreSQL local à la place de RDS.
+# Usage : docker compose -f docker-compose.prod.yml -f docker-compose.local-test.yml --env-file .env.local-test up -d --build
+services:
+  traefik:
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --log.level=INFO
+    ports: !override
+      - "8080:80"
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: smartcampus
+      POSTGRES_PASSWORD: smartcampus
+      POSTGRES_DB: smartcampus
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartcampus"]
+      interval: 2s
+      retries: 15
+
+  api:
+    env_file: !override
+      - .env.local-test
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      COOKIE_SECURE: "false"
+      APP_URL: http://localhost:8080
+    labels:
+      traefik.http.routers.api.entrypoints: web
+      traefik.http.routers.api.tls: "false"
+      traefik.http.routers.api.tls.certresolver: ""
+
+  web:
+    labels:
+      traefik.http.routers.web.entrypoints: web
+      traefik.http.routers.web.tls: "false"
+      traefik.http.routers.web.tls.certresolver: ""

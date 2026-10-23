@@ -43,6 +43,6 @@ Un commit par bloc. Les tests existants doivent passer ; chaque nouvelle règle 
 - [x] e5 FR/EN complet + assistant dans la langue de la question (US-38)
 
 ## Bloc f — Déploiement
-- [ ] f1 Dockerfiles api et web, `docker-compose.prod.yml` (Traefik)
-- [ ] f2 `DEPLOY.md` : schéma d'architecture, console AWS pas à pas, IAM, groupes de sécurité, variables, coûts, suppression
-- [ ] f3 Test local de la stack de production
+- [x] f1 Dockerfiles api et web, `docker-compose.prod.yml` (Traefik)
+- [x] f2 `DEPLOY.md` : schéma d'architecture, console AWS pas à pas, IAM, groupes de sécurité, variables, coûts, suppression
+- [x] f3 Test local de la stack de production
