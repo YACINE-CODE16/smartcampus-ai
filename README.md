@@ -14,7 +14,7 @@ Un assistant IA (Amazon Bedrock) répond aux questions courantes et aide à qual
 | Couche | Technologies |
 |---|---|
 | Front | React 19, Vite, React Router, Recharts, Lucide ; CSS natif à variables (clair/sombre) |
-| API | Node 20, Express 5, TypeScript, zod ; ports/adapters choisis par variables d'environnement |
+| API | Node 22 (Lambda nodejs22.x), Express 5, TypeScript, zod ; ports/adapters choisis par variables d'environnement |
 | Données | PostgreSQL 16, Prisma 7 (sans moteur natif) |
 | AWS | CloudFront + S3, API Gateway HTTP API, Cognito, Lambda (×6), RDS, S3, EventBridge, SES, Bedrock Nova Lite ; AWS SAM |
 | Qualité | Vitest (108 tests : règles métier + intégration API), oxlint, TypeScript strict |

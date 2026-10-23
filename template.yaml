@@ -6,7 +6,6 @@ Metadata:
       ignore_checks:
         - W1030 # ExistingVpcId / PublicSubnetId vides en VpcMode=new (conditions)
         - W1011 # secrets générés par le script, passés en NoEcho (pas de Secrets Manager pour la démo)
-        - W2531 # Node 20 imposé par l'architecture validée ; nodejs22.x/24.x compatibles sans changement de code
 Description: >
   SmartCampus AI : architecture validée avec les coachs (us-east-1).
   CloudFront (S3 front privé + /api/*) → API Gateway HTTP API (authorizer JWT Cognito) → 4 Lambdas Express,
@@ -87,7 +86,7 @@ Conditions:
 # ---------------------------------------------------------------------------------------------------------
 Globals:
   Function:
-    Runtime: nodejs20.x
+    Runtime: nodejs22.x
     Architectures: [arm64]
     CodeUri: apps/api/dist/lambda
     MemorySize: 1024

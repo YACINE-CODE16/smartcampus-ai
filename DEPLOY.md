@@ -182,7 +182,7 @@ aws cognito-idp list-users --user-pool-id <UserPoolId> --query 'Users[].Username
 3. Onglet **Groups** : créer `STUDENT`, `AGENT` et `ADMIN`.
 4. Les utilisateurs sont créés par la Lambda Migrate (plus bas).
 
-### Lambdas (6 fonctions, Node 20, arm64)
+### Lambdas (6 fonctions, Node 22, arm64)
 **SAM** : un seul bundle `apps/api/dist/lambda` (~7 Mo par handler, Prisma 7 sans binaire natif : pas de `binaryTargets`). Les 6 fonctions sont dans les deux sous-réseaux privés, avec `smartcampus-sg-lambda`. Rôle : `LabRole` (paramètre `LabRoleArn`) ou `AppRole` créé par la pile.
 
 | Fonction | Handler | Délai | Déclencheur |
@@ -201,7 +201,7 @@ aws logs tail /aws/lambda/smartcampus-incidents --since 10m --follow
 **Console**
 1. `npm run build:lambda`, puis `cd apps/api/dist/lambda && zip -r ../lambda.zip .`
 2. **Lambda → Create function** (×6) :
-   - *Author from scratch*, **Node.js 20.x**, **arm64** ;
+   - *Author from scratch*, **Node.js 22.x**, **arm64** ;
    - *Execution role* : **LabRole** ;
    - *Advanced* → **Enable VPC** : VPC par défaut, deux sous-réseaux privés, groupe `smartcampus-sg-lambda` ;
    - téléverser `lambda.zip`, renseigner le *Handler* du tableau, et dans *Configuration → General* : mémoire **1024 Mo** et le délai du tableau.

@@ -20,7 +20,7 @@ const result = await build({
   outExtension: { '.js': '.mjs' },
   bundle: true,
   platform: 'node',
-  target: 'node20',
+  target: 'node22',
   format: 'esm',
   minify: true,
   keepNames: true,
