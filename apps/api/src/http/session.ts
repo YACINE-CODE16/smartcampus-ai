@@ -1,4 +1,4 @@
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { jwtVerify, SignJWT } from 'jose';
 import type { SessionUser } from '@smartcampus/shared';
 import type { Env } from '../config/env';
@@ -6,8 +6,19 @@ import type { Env } from '../config/env';
 export const SESSION_COOKIE = 'sc_session';
 const SESSION_HOURS = 8;
 
-/** Session applicative signée par l'API, indépendante du fournisseur d'identité. */
-export class SessionService {
+/** Qui appelle : id interne (cookie local) ou email (jeton Cognito vérifié par API Gateway). */
+export type Identity = { userId: string } | { email: string };
+
+/** Manière dont une requête porte la session, selon le fournisseur d'identité. */
+export interface SessionStrategy {
+  /** Après une connexion réussie (pose le cookie en local ; rien avec Cognito, les jetons partent dans la réponse). */
+  issue(res: Response, user: SessionUser): Promise<void>;
+  identify(req: Request): Promise<Identity | null>;
+  clear(res: Response): void;
+}
+
+/** Mode local : JWT signé par l'API, en cookie httpOnly (compatible SSE). */
+export class CookieSession implements SessionStrategy {
   private readonly key: Uint8Array;
 
   constructor(private readonly env: Env) {
@@ -30,12 +41,12 @@ export class SessionService {
     });
   }
 
-  /** Renvoie l'id utilisateur du jeton, ou `null` s'il est absent, invalide ou expiré. */
-  async verify(token: string | undefined): Promise<string | null> {
+  async identify(req: Request): Promise<Identity | null> {
+    const token = req.cookies?.[SESSION_COOKIE] as string | undefined;
     if (!token) return null;
     try {
       const { payload } = await jwtVerify(token, this.key, { algorithms: ['HS256'] });
-      return payload.sub ?? null;
+      return payload.sub ? { userId: payload.sub } : null;
     } catch {
       return null;
     }
@@ -44,4 +55,24 @@ export class SessionService {
   clear(res: Response): void {
     res.clearCookie(SESSION_COOKIE, { path: '/' });
   }
+}
+
+/** Requête Express enrichie par serverless-http (événement API Gateway HTTP API v2). */
+interface ApiGatewayRequest extends Request {
+  apiGateway?: { event?: { requestContext?: { authorizer?: { jwt?: { claims?: Record<string, unknown> } } } } };
+}
+
+/**
+ * Mode Cognito : l'authorizer JWT d'API Gateway a déjà vérifié la signature, l'émetteur, l'audience
+ * et l'expiration du jeton ; l'API lit les claims qu'il transmet. Sans claims (appel hors API Gateway) : refus.
+ */
+export class CognitoSession implements SessionStrategy {
+  async issue(): Promise<void> {}
+
+  async identify(req: Request): Promise<Identity | null> {
+    const email = (req as ApiGatewayRequest).apiGateway?.event?.requestContext?.authorizer?.jwt?.claims?.email;
+    return typeof email === 'string' && email ? { email } : null;
+  }
+
+  clear(): void {}
 }

@@ -20,6 +20,8 @@ export type Who = keyof typeof DEMO;
 
 export interface TestApi {
   container: Container;
+  /** Origine HTTP de l'API de test (pour les URL relatives renvoyées par /api/files). */
+  origin: string;
   ids: Record<Who, string>;
   call(who: Who | null, path: string, init?: RequestInit): Promise<Response>;
   json<T>(who: Who | null, path: string, init?: RequestInit): Promise<T>;
@@ -33,7 +35,8 @@ export interface TestApi {
 export async function startApi(): Promise<TestApi> {
   const container = createContainer(env);
   const server: Server = createApp(container).listen(0);
-  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}/api`;
+  const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  const base = `${origin}/api`;
   const cookies = {} as Record<Who, string>;
   const ids = {} as Record<Who, string>;
   const created: string[] = [];
@@ -60,7 +63,7 @@ export async function startApi(): Promise<TestApi> {
 
   let refs: Referentials | null = null;
   const createTicket: TestApi['createTicket'] = async (who, opts = {}) => {
-    refs ??= await json<Referentials>(who, '/referentials');
+    refs ??= await json<Referentials>(who, '/incidents/referentials');
     const form = new FormData();
     form.set('categoryId', refs.categories.find((c) => c.slug === (opts.slug ?? 'materiel'))!.id);
     form.set('buildingId', refs.buildings[opts.buildingIndex ?? 0]!.id);
@@ -76,6 +79,7 @@ export async function startApi(): Promise<TestApi> {
 
   return {
     container,
+    origin,
     ids,
     call,
     json,

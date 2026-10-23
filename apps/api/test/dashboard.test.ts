@@ -11,12 +11,12 @@ afterAll(() => api.stop());
 
 describe('GET /admin/dashboard', () => {
   it('réservé à l’admin', async () => {
-    expect((await api.call('karim', '/admin/dashboard')).status).toBe(403);
-    expect((await api.call('alice', '/admin/dashboard')).status).toBe(403);
+    expect((await api.call('karim', '/dashboard')).status).toBe(403);
+    expect((await api.call('alice', '/dashboard')).status).toBe(403);
   });
 
   it('US-27 : la somme des statuts vaut le total de la période ; US-29 : 5 bâtiments triés', async () => {
-    const d = await api.json<DashboardResponse>('claire', '/admin/dashboard?period=all');
+    const d = await api.json<DashboardResponse>('claire', '/dashboard?period=all');
     const sum = Object.values(d.byStatus).reduce((a, b) => a + b, 0);
     expect(sum).toBe(d.kpis.total);
     expect(d.kpis.total).toBe(await api.container.prisma.incident.count());
@@ -26,7 +26,7 @@ describe('GET /admin/dashboard', () => {
   });
 
   it('US-28 : indicateurs bornés et satisfaction issue des notes (US-12)', async () => {
-    const d = await api.json<DashboardResponse>('claire', '/admin/dashboard?period=30d');
+    const d = await api.json<DashboardResponse>('claire', '/dashboard?period=30d');
     expect(d.kpis.resolutionRate).toBeGreaterThan(0);
     expect(d.kpis.resolutionRate).toBeLessThanOrEqual(1);
     expect(d.kpis.reopenRate).toBeGreaterThan(0);
@@ -40,29 +40,29 @@ describe('GET /admin/dashboard', () => {
 
   it('US-30 : granularités jour / semaine / mois et créés = total', async () => {
     for (const g of ['day', 'week', 'month'] as const) {
-      const d = await api.json<DashboardResponse>('claire', `/admin/dashboard?period=30d&granularity=${g}`);
+      const d = await api.json<DashboardResponse>('claire', `/dashboard?period=30d&granularity=${g}`);
       expect(d.series.reduce((a, p) => a + p.created, 0)).toBe(d.kpis.total);
     }
-    const days = await api.json<DashboardResponse>('claire', '/admin/dashboard?period=7d&granularity=day');
+    const days = await api.json<DashboardResponse>('claire', '/dashboard?period=7d&granularity=day');
     expect(days.series.length).toBeGreaterThanOrEqual(7);
   });
 
   it('US-32 : charge par agent cohérente avec les tickets ouverts affectés', async () => {
-    const d = await api.json<DashboardResponse>('claire', '/admin/dashboard');
+    const d = await api.json<DashboardResponse>('claire', '/dashboard');
     const karim = d.agents.find((a) => a.id === api.ids.karim)!;
     const open = await api.container.prisma.incident.count({ where: { assignedToId: api.ids.karim, status: { in: ['NOUVEAU', 'EN_COURS'] } } });
     expect(karim.open).toBe(open);
   });
 
   it('400 sur une période inconnue', async () => {
-    expect((await api.call('claire', '/admin/dashboard?period=12y')).status).toBe(400);
+    expect((await api.call('claire', '/dashboard?period=12y')).status).toBe(400);
   });
 });
 
 describe('US-33 export CSV', () => {
   it('exporte les tickets filtrés, en UTF-8 avec BOM, et trace l’export', async () => {
     const before = await api.container.prisma.auditLog.count({ where: { action: 'EXPORT' } });
-    const res = await api.call('claire', '/admin/incidents/export.csv?late=true');
+    const res = await api.call('claire', '/dashboard/incidents.csv?late=true');
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('text/csv');
     // `text()` retire le BOM au décodage : on contrôle les octets bruts.
@@ -78,8 +78,8 @@ describe('US-33 export CSV', () => {
   });
 
   it('en-têtes en anglais avec Accept-Language: en ; refusé aux agents', async () => {
-    const res = await api.call('claire', '/admin/incidents/export.csv', { headers: { 'accept-language': 'en' } });
+    const res = await api.call('claire', '/dashboard/incidents.csv', { headers: { 'accept-language': 'en' } });
     expect((await res.text()).split('\r\n')[0]).toContain('Ticket;Created;Status');
-    expect((await api.call('karim', '/admin/incidents/export.csv')).status).toBe(403);
+    expect((await api.call('karim', '/dashboard/incidents.csv')).status).toBe(403);
   });
 });

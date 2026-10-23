@@ -2,7 +2,9 @@ import type { Env } from './config/env';
 import { createPrismaClient, type PrismaClient } from './db';
 import { BedrockAiAssistant } from './adapters/bedrock-assistant';
 import { BedrockKnowledgeBase, CompositeKnowledgeBase } from './adapters/bedrock-knowledge-base';
+import { CognitoAuthProvider } from './adapters/cognito-auth';
 import { ConsoleMailer } from './adapters/console-mailer';
+import { LambdaInvokeMailer } from './adapters/lambda-mailer';
 import { LocalAuthProvider } from './adapters/local-auth';
 import { LocalFileStorage } from './adapters/local-storage';
 import { LocalKnowledgeBase } from './adapters/local-knowledge-base';
@@ -10,7 +12,7 @@ import { MockAiAssistant } from './adapters/mock-assistant';
 import { S3FileStorage } from './adapters/s3-storage';
 import { SesMailer } from './adapters/ses-mailer';
 import { LoginLimiter } from './http/security';
-import { SessionService } from './http/session';
+import { CognitoSession, CookieSession, type SessionStrategy } from './http/session';
 import type { AiAssistant } from './ports/ai-assistant';
 import type { AuthProvider } from './ports/auth';
 import type { FileStorage } from './ports/file-storage';
@@ -36,7 +38,7 @@ export interface Container {
   env: Env;
   prisma: PrismaClient;
   auth: AuthProvider;
-  sessions: SessionService;
+  sessions: SessionStrategy;
   loginLimiter: LoginLimiter;
   storage: FileStorage;
   mailer: Mailer;
@@ -58,13 +60,19 @@ export interface Container {
 
 export function createContainer(env: Env): Container {
   const prisma = createPrismaClient(env.DATABASE_URL);
-  const auth = new LocalAuthProvider(prisma);
+  const auth: AuthProvider =
+    env.AUTH_PROVIDER === 'cognito'
+      ? new CognitoAuthProvider(prisma, env.COGNITO_USER_POOL_ID!, env.COGNITO_CLIENT_ID!, env.AWS_REGION)
+      : new LocalAuthProvider(prisma);
+  const sessions: SessionStrategy = env.AUTH_PROVIDER === 'cognito' ? new CognitoSession() : new CookieSession(env);
   const storage: FileStorage =
-    env.STORAGE_DRIVER === 's3' ? new S3FileStorage(env.S3_BUCKET!, env.AWS_REGION) : new LocalFileStorage(env.UPLOAD_DIR);
+    env.STORAGE_DRIVER === 's3' ? new S3FileStorage(env.S3_BUCKET!, env.AWS_REGION) : new LocalFileStorage(env.UPLOAD_DIR, env.JWT_SECRET);
   const mailer: Mailer =
     env.MAIL_DRIVER === 'ses'
-      ? new SesMailer(env.MAIL_FROM, env.AWS_REGION)
-      : new ConsoleMailer(env.MAIL_OUTBOX_DIR, env.MAIL_FROM, env.NODE_ENV === 'test');
+      ? new SesMailer(env.MAIL_FROM, env.AWS_REGION, env.MAIL_REDIRECT_TO)
+      : env.MAIL_DRIVER === 'lambda'
+        ? new LambdaInvokeMailer(env.NOTIFICATIONS_FUNCTION!, env.AWS_REGION)
+        : new ConsoleMailer(env.MAIL_OUTBOX_DIR, env.MAIL_FROM, env.NODE_ENV === 'test');
 
   const localKb = new LocalKnowledgeBase(prisma);
   const kb: KnowledgeBase =
@@ -84,7 +92,7 @@ export function createContainer(env: Env): Container {
     env,
     prisma,
     auth,
-    sessions: new SessionService(env),
+    sessions,
     loginLimiter: new LoginLimiter(),
     storage,
     mailer,
@@ -98,8 +106,8 @@ export function createContainer(env: Env): Container {
     exports: new ExportService(prisma, audit),
     assistant: new AssistantService(prisma, kb, ai, mock),
     knowledge: new KnowledgeAdminService(prisma),
-    users: new UserAdminService(prisma, audit, storage),
-    adapterNames: { database: 'postgresql', auth: auth.name, storage: storage.name, mail: mailer.name, knowledgeBase: kb.name, ai: ai.name },
+    users: new UserAdminService(prisma, audit, storage, auth),
+    adapterNames: { database: 'postgresql', auth: auth.name, realtime: env.REALTIME_MODE, storage: storage.name, mail: mailer.name, knowledgeBase: kb.name, ai: ai.name },
     dispose: () => prisma.$disconnect(),
   };
 }

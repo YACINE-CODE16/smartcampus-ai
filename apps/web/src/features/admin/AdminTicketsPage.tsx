@@ -1,4 +1,3 @@
-import { Download } from 'lucide-react';
 import { useSearchParams } from 'react-router';
 import {
   INCIDENT_STATUSES,
@@ -9,10 +8,11 @@ import {
   type IncidentSummary,
   type Referentials,
 } from '@smartcampus/shared';
+import { ExportButton } from '../../components/ExportButton';
 import { TicketTable } from '../../components/TicketTable';
 import { query } from '../../lib/api';
 import { useI18n } from '../../lib/i18n';
-import { useLive } from '../../lib/live';
+import { touches, useLive } from '../../lib/live';
 import { useApi } from '../../lib/useApi';
 
 const FILTER_KEYS = ['status', 'categoryId', 'buildingId', 'assignedToId', 'priority', 'late', 'q'] as const;
@@ -24,9 +24,9 @@ export function AdminTicketsPage() {
   const filters = Object.fromEntries(FILTER_KEYS.map((k) => [k, params.get(k) ?? ''])) as Record<(typeof FILTER_KEYS)[number], string>;
   const qs = query(filters);
   const { data, error, loading, reload } = useApi<IncidentSummary[]>(`/incidents${qs}`);
-  const { data: refs } = useApi<Referentials>('/referentials');
-  const { data: agents } = useApi<AgentDto[]>('/agents');
-  useLive((e) => e.type === 'incident.changed' && reload());
+  const { data: refs } = useApi<Referentials>('/incidents/referentials');
+  const { data: agents } = useApi<AgentDto[]>('/users/agents');
+  useLive((e) => touches(e) && reload());
 
   function set(key: (typeof FILTER_KEYS)[number], value: string) {
     const next = new URLSearchParams(params);
@@ -42,10 +42,7 @@ export function AdminTicketsPage() {
           {t('Tickets', 'Tickets')} {data && <span className="count">{data.length}</span>}
         </h1>
         {/* US-33 : export des tickets affichés (même filtres), tracé dans le journal d'audit */}
-        <a className="btn btn--secondary" href={`/api/admin/incidents/export.csv${qs}`} download>
-          <Download size={16} strokeWidth={1.75} aria-hidden="true" />
-          {t('Exporter en CSV', 'Export to CSV')}
-        </a>
+        <ExportButton path={`/dashboard/incidents.csv${qs}`} fileName="tickets.csv" />
       </div>
 
       <form className="filters panel" role="search" onSubmit={(e) => e.preventDefault()}>

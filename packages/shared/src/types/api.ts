@@ -14,6 +14,8 @@ export interface HealthResponse {
   database: 'ok' | 'error';
   /** Implémentation active de chaque port (ex. `{ storage: 'local', ai: 'mock' }`). */
   adapters: Record<string, string>;
+  /** `sse` : flux continu (local) ; `poll` : rafraîchissement toutes les `pollSeconds` (AWS). */
+  realtime: { mode: 'sse' | 'poll'; pollSeconds: number };
 }
 
 export interface ApiError {
@@ -22,6 +24,15 @@ export interface ApiError {
   /** Erreurs par champ (validation). */
   fields?: Record<string, string>;
 }
+
+/** Jetons Cognito (déploiement AWS) ; absents en local, où la session est un cookie httpOnly. */
+export interface AuthTokens {
+  idToken: string;
+  refreshToken?: string;
+  expiresIn: number;
+}
+
+export type LoginResponse = SessionUser & { tokens?: AuthTokens };
 
 export interface SessionUser {
   id: string;
@@ -183,7 +194,9 @@ export interface AlertsResponse {
 export type LiveEvent =
   | { type: 'incident.changed'; id: string }
   | { type: 'notification'; unread: number }
-  | { type: 'alert'; kind: 'critical' | 'late'; id: string };
+  | { type: 'alert'; kind: 'critical' | 'late'; id: string }
+  /** Mode `poll` (AWS) : signal périodique « rechargez vos données », sans détail. */
+  | { type: 'refresh' };
 
 export const DASHBOARD_PERIODS = ['7d', '30d', '90d', 'all'] as const;
 export type DashboardPeriod = (typeof DASHBOARD_PERIODS)[number];

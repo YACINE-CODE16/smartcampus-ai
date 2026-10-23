@@ -6,7 +6,20 @@ type Listener = (event: LiveEvent) => void;
 const LiveContext = createContext<Set<Listener> | null>(null);
 
 /**
- * Une connexion SSE par onglet, ouverte tant que l'utilisateur est connecté.
+ * `sse` en local ; `poll` sur AWS (API Gateway et Lambda ne gardent pas de connexion ouverte) :
+ * un événement `refresh` toutes les `VITE_POLL_SECONDS` secondes, quand l'onglet est visible.
+ */
+const MODE = import.meta.env.VITE_REALTIME_MODE === 'poll' ? 'poll' : 'sse';
+const POLL_MS = (Number(import.meta.env.VITE_POLL_SECONDS) || 20) * 1000;
+
+/** Vrai si l'événement doit faire recharger un ticket donné (ou n'importe lequel sans `id`). */
+// oxlint-disable-next-line react/only-export-components
+export function touches(e: LiveEvent, id?: string): boolean {
+  return e.type === 'refresh' || (e.type === 'incident.changed' && (id === undefined || e.id === id));
+}
+
+/**
+ * Mode `sse` : une connexion par onglet, ouverte tant que l'utilisateur est connecté.
  * Le flux est fermé quand la page est masquée (`pagehide`) et rouvert à son retour (`pageshow`) :
  * sinon les pages gardées dans le cache précédent/suivant du navigateur conservent leur connexion
  * et épuisent la limite de 6 connexions par serveur (pages bloquées au chargement).
@@ -16,7 +29,21 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   const [listeners] = useState(() => new Set<Listener>());
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || MODE !== 'poll') return;
+    const tick = () => {
+      if (document.visibilityState !== 'visible') return;
+      for (const l of listeners) l({ type: 'refresh' });
+    };
+    const timer = setInterval(tick, POLL_MS);
+    document.addEventListener('visibilitychange', tick);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', tick);
+    };
+  }, [user, listeners]);
+
+  useEffect(() => {
+    if (!user || MODE !== 'sse') return;
     let source: EventSource | null = null;
 
     const open = () => {

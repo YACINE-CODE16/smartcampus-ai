@@ -80,7 +80,7 @@ describe('US-16 requalification', () => {
   it('passer en Sécurité rend le ticket CRITIQUE et alerte les admins (R3)', async () => {
     const t = await api.createTicket('alice', { slug: 'autre', urgency: 'NORMALE' });
     await api.post('karim', `/incidents/${t.id}/take`, {});
-    const refs = await api.json<{ categories: CategoryDto[] }>('karim', '/referentials');
+    const refs = await api.json<{ categories: CategoryDto[] }>('karim', '/incidents/referentials');
     const res = await api.call('karim', `/incidents/${t.id}`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
@@ -97,7 +97,7 @@ describe('US-16 requalification', () => {
   it('un ticket Sécurité créé par un étudiant alerte immédiatement les admins', async () => {
     const t = await api.createTicket('alice', { slug: 'securite', urgency: 'FAIBLE' });
     expect(t.priority).toBe('CRITIQUE');
-    const alerts = await api.json<AlertsResponse>('claire', '/admin/alerts');
+    const alerts = await api.json<AlertsResponse>('claire', '/sla/alerts');
     expect(alerts.critical.map((x) => x.id)).toContain(t.id);
   });
 });
@@ -160,15 +160,15 @@ describe('US-18 délais cibles', () => {
     expect(await checkOverdue(api.container)).toBeGreaterThanOrEqual(1);
     expect(await checkOverdue(api.container)).toBe(0);
     expect((await notificationsOf(api.ids.alice, t.id)).map((n) => n.type)).toEqual(['OVERDUE']);
-    const alerts = await api.json<AlertsResponse>('claire', '/admin/alerts');
+    const alerts = await api.json<AlertsResponse>('claire', '/sla/alerts');
     expect(alerts.late.map((x) => x.id)).toContain(t.id);
   });
 
   it('l’admin règle le délai par catégorie (1–720 h) ; refusé aux agents', async () => {
-    const cats = await api.json<CategoryDto[]>('claire', '/admin/categories');
+    const cats = await api.json<CategoryDto[]>('claire', '/sla/categories');
     const reseau = cats.find((c) => c.slug === 'reseau')!;
     const patch = (who: 'claire' | 'karim', targetHours: number) =>
-      api.call(who, `/admin/categories/${reseau.id}`, {
+      api.call(who, `/sla/categories/${reseau.id}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ targetHours }),

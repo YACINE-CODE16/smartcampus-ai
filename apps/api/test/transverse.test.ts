@@ -53,7 +53,7 @@ describe('US-34 suppression des données d’un étudiant', () => {
     const cookie = loginRes.headers.get('set-cookie')!.split(';')[0]!;
 
     // Un ticket avec photo, une notification et un échange avec l'assistant
-    const refs = (await (await fetch(`${url}/referentials`, { headers: { cookie } })).json()) as Referentials;
+    const refs = (await (await fetch(`${url}/incidents/referentials`, { headers: { cookie } })).json()) as Referentials;
     const png = Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da63f8cfc0f01f0005000201a3d6b3b50000000049454e44ae426082', 'hex');
     const form = new FormData();
     form.set('categoryId', refs.categories[0]!.id);
@@ -66,11 +66,11 @@ describe('US-34 suppression des données d’un étudiant', () => {
     await api.post('karim', `/incidents/${t.id}/take`, {});
     await fetch(`${url}/assistant/ask`, { method: 'POST', headers: { cookie, 'content-type': 'application/json' }, body: JSON.stringify({ message: 'wifi ?' }) });
 
-    const erase = (confirmEmail: string, id = student.id) => api.post('claire', `/admin/users/${id}/erase`, { confirmEmail });
+    const erase = (confirmEmail: string, id = student.id) => api.post('claire', `/privacy/users/${id}/erase`, { confirmEmail });
     expect((await erase('autre@esiea.fr')).status).toBe(400);
     expect((await erase(DEMO_AGENT, api.ids.karim)).status).toBe(409); // pas un étudiant
     expect((await erase('x', api.ids.claire)).status).toBe(409); // soi-même
-    expect((await api.post('karim', `/admin/users/${student.id}/erase`, { confirmEmail: email })).status).toBe(403);
+    expect((await api.post('karim', `/privacy/users/${student.id}/erase`, { confirmEmail: email })).status).toBe(403);
     const res = await erase(email.toUpperCase());
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ tickets: 1, photos: 1 });
@@ -89,7 +89,7 @@ describe('US-34 suppression des données d’un étudiant', () => {
     expect((await fetch(`${url}/auth/me`, { headers: { cookie } })).status).toBe(401);
     expect((await fetch(`${url}/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, password: 'Secret-123!' }) })).status).toBe(401);
 
-    const audit = await api.json<AuditEntryDto[]>('claire', '/admin/audit?action=DATA_DELETION');
+    const audit = await api.json<AuditEntryDto[]>('claire', '/audit?action=DATA_DELETION');
     const entry = audit.find((a) => a.targetId === student.id)!;
     expect(entry.details).toEqual({ tickets: 1, photos: 1 });
     expect(entry.targetLabel).toBe('Utilisateur supprimé');
@@ -101,13 +101,13 @@ const DEMO_AGENT = 'karim.benali@esiea.fr';
 
 describe('US-37 journal d’audit', () => {
   it('lecture seule, réservée à l’admin, filtrable par action', async () => {
-    await api.call('claire', '/admin/incidents/export.csv');
-    const all = await api.json<AuditEntryDto[]>('claire', '/admin/audit');
+    await api.call('claire', '/dashboard/incidents.csv');
+    const all = await api.json<AuditEntryDto[]>('claire', '/audit');
     expect(all.length).toBeGreaterThan(0);
-    const exports = await api.json<AuditEntryDto[]>('claire', '/admin/audit?action=EXPORT');
+    const exports = await api.json<AuditEntryDto[]>('claire', '/audit?action=EXPORT');
     expect(exports.every((e) => e.action === 'EXPORT')).toBe(true);
     expect(exports[0]!.actor?.id).toBe(api.ids.claire);
-    expect((await api.call('karim', '/admin/audit')).status).toBe(403);
-    expect((await api.call('claire', `/admin/audit/${all[0]!.id}`, { method: 'DELETE' })).status).toBe(404);
+    expect((await api.call('karim', '/audit')).status).toBe(403);
+    expect((await api.call('claire', `/audit/${all[0]!.id}`, { method: 'DELETE' })).status).toBe(404);
   });
 });

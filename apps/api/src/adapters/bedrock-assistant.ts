@@ -37,7 +37,8 @@ export class BedrockAiAssistant implements AiAssistant {
     guardrailId?: string,
     guardrailVersion = 'DRAFT',
   ) {
-    this.client = new BedrockRuntimeClient({ region });
+    // Délais courts : sans réponse (Lambda sans NAT, modèle non activé…), repli sur le mock bien avant les 30 s d'API Gateway.
+    this.client = new BedrockRuntimeClient({ region, maxAttempts: 1, requestHandler: { connectionTimeout: 3_000, requestTimeout: 15_000 } });
     if (guardrailId) this.guardrail = { guardrailIdentifier: guardrailId, guardrailVersion, trace: 'disabled' };
   }
 

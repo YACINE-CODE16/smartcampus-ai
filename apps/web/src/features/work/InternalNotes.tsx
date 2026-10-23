@@ -4,7 +4,7 @@ import { SETTINGS, type InternalNoteDto } from '@smartcampus/shared';
 import { ApiRequestError, api } from '../../lib/api';
 import { formatDateTime } from '../../lib/format';
 import { useI18n } from '../../lib/i18n';
-import { useLive } from '../../lib/live';
+import { touches, useLive } from '../../lib/live';
 import { useApi } from '../../lib/useApi';
 
 /** US-15 : notes internes, visibles uniquement des agents et des admins. */
@@ -14,7 +14,7 @@ export function InternalNotes({ incidentId }: { incidentId: string }) {
   const [body, setBody] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  useLive((e) => e.type === 'incident.changed' && e.id === incidentId && reload());
+  useLive((e) => touches(e, incidentId) && reload());
 
   async function submit(ev: FormEvent) {
     ev.preventDefault();

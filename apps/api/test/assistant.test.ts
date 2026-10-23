@@ -47,7 +47,7 @@ describe('US-21 ticket pré-rempli', () => {
 
   it('le ticket créé depuis l’assistant est rattaché à l’échange (US-31)', async () => {
     const r = await ask('alice', 'la porte de la salle B204 est bloquée');
-    const refs = await api.json<{ categories: { id: string; slug: string }[]; buildings: { id: string; code: string }[] }>('alice', '/referentials');
+    const refs = await api.json<{ categories: { id: string; slug: string }[]; buildings: { id: string; code: string }[] }>('alice', '/incidents/referentials');
     const form = new FormData();
     form.set('categoryId', refs.categories.find((c) => c.slug === 'salle')!.id);
     form.set('buildingId', refs.buildings.find((b) => b.code === 'B')!.id);
@@ -134,8 +134,8 @@ describe('US-25 suggestion de qualification', () => {
 
 describe('US-24 base documentaire gérée par l’admin', () => {
   it('une FAQ ajoutée est utilisée immédiatement ; réservé à l’admin', async () => {
-    expect((await api.post('karim', '/admin/kb/faq', {})).status).toBe(403);
-    const res = await api.post('claire', '/admin/kb/faq', {
+    expect((await api.post('karim', '/knowledge/faq', {})).status).toBe(403);
+    const res = await api.post('claire', '/knowledge/faq', {
       question: 'Où garer mon vélo ?',
       answer: 'Un parking vélo couvert et sécurisé se trouve derrière le bâtiment B, accessible avec la carte étudiant.',
       keywords: ['vélo', 'parking vélo', 'garer'],
@@ -146,7 +146,7 @@ describe('US-24 base documentaire gérée par l’admin', () => {
     expect(faq.keywords).toContain('velo');
     const r = await ask('alice', 'où mettre mon vélo ?');
     expect(r.sources[0]?.title).toBe('Où garer mon vélo ?');
-    expect((await api.call('claire', `/admin/kb/faq/${faq.id}`, { method: 'DELETE' })).status).toBe(204);
+    expect((await api.call('claire', `/knowledge/faq/${faq.id}`, { method: 'DELETE' })).status).toBe(204);
   });
 });
 

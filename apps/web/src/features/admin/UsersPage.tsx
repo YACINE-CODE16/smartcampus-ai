@@ -28,7 +28,7 @@ function EraseControl({ u, onDone }: { u: UserRow; onDone(): void }) {
     setBusy(true);
     setError(null);
     try {
-      await api.post(`/admin/users/${u.id}/erase`, { confirmEmail: email });
+      await api.post(`/privacy/users/${u.id}/erase`, { confirmEmail: email });
       onDone();
     } catch (err) {
       setError(err instanceof ApiRequestError ? (Object.values(err.fields)[0] ?? err.message) : t('Échec', 'Failed'));
@@ -76,7 +76,7 @@ function UserLine({ u, self, onChanged }: { u: UserRow; self: boolean; onChanged
   async function save() {
     setMsg(null);
     try {
-      await api.patch(`/admin/users/${u.id}/role`, { role });
+      await api.patch(`/users/${u.id}/role`, { role });
       setMsg({ ok: true, text: t('Rôle mis à jour', 'Role updated') });
       onChanged();
     } catch (err) {
@@ -127,7 +127,7 @@ export function UsersPage() {
   const { t } = useI18n();
   const { user } = useAuth();
   const [q, setQ] = useState('');
-  const { data, error, reload } = useApi<UserRow[]>(`/admin/users${query({ q })}`);
+  const { data, error, reload } = useApi<UserRow[]>(`/users${query({ q })}`);
 
   return (
     <section className="users">

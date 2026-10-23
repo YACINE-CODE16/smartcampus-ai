@@ -26,6 +26,7 @@ export function NotificationBell({ role }: { role: Role }) {
     void load();
   }, []);
   useLive((e) => {
+    if (e.type === 'refresh') return void load();
     if (e.type !== 'notification') return;
     setData((d) => (d ? { ...d, unread: e.unread } : d));
     if (open || e.unread > (data?.unread ?? 0)) void load();

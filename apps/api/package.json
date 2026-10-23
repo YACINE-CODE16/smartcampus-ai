@@ -12,13 +12,18 @@
     "db:studio": "prisma studio",
     "postinstall": "prisma generate",
     "seed": "tsx prisma/seed.ts",
-    "db:reset": "prisma migrate reset --force"
+    "db:reset": "prisma migrate reset --force",
+    "build:lambda": "node scripts/build-lambda.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-agent-runtime": "^3.1155.0",
     "@aws-sdk/client-bedrock-runtime": "^3.1155.0",
+    "@aws-sdk/client-cognito-identity-provider": "^3.1156.0",
+    "@aws-sdk/client-lambda": "^3.1156.0",
     "@aws-sdk/client-s3": "^3.1155.0",
     "@aws-sdk/client-sesv2": "^3.1155.0",
+    "@aws-sdk/s3-presigned-post": "^3.1156.0",
+    "@aws-sdk/s3-request-presigner": "^3.1156.0",
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "7.10.1",
     "@smartcampus/shared": "*",
@@ -26,13 +31,18 @@
     "express": "^5.3.0",
     "jose": "^6.2.13",
     "multer": "^2.4.0",
+    "pg": "^8.23.1",
+    "serverless-http": "^4.0.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@types/aws-lambda": "^8.10.164",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.6",
     "@types/multer": "^2.3.0",
     "@types/node": "^24.19.2",
+    "@types/pg": "^8.23.1",
+    "esbuild": "^0.28.2",
     "prisma": "7.10.1",
     "tsx": "^4.23.15"
   }

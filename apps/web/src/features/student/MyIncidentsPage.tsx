@@ -10,7 +10,7 @@ import { useApi } from '../../lib/useApi';
 export function MyIncidentsPage() {
   const { t } = useI18n();
   const { data, error, loading, reload } = useApi<IncidentSummary[]>('/incidents');
-  useLive((e) => e.type === 'incident.changed' && data?.some((x) => x.id === e.id) && reload());
+  useLive((e) => (e.type === 'refresh' || (e.type === 'incident.changed' && data?.some((x) => x.id === e.id))) && reload());
 
   return (
     <section>

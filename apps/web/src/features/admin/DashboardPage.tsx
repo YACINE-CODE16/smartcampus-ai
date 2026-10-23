@@ -1,5 +1,5 @@
 import { StatusBadge } from '../../components/Badges';
-import { Clock, Download, Printer, TriangleAlert } from 'lucide-react';
+import { Clock, Printer, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import {
@@ -14,9 +14,10 @@ import {
 import { query } from '../../lib/api';
 import { formatHours, formatPercent } from '../../lib/format';
 import { useI18n } from '../../lib/i18n';
-import { useLive } from '../../lib/live';
+import { touches, useLive } from '../../lib/live';
 import { useApi } from '../../lib/useApi';
 import { ChartCard, HBarChart, TrendChart } from './charts';
+import { ExportButton } from '../../components/ExportButton';
 import { TableWrap } from '../../components/TableWrap';
 
 const PERIOD_LABELS: Record<DashboardPeriod, { fr: string; en: string }> = {
@@ -61,10 +62,10 @@ export function DashboardPage() {
   const [granularity, setGranularity] = useState<Granularity>('day');
   const [categoryId, setCategoryId] = useState('');
   const [buildingId, setBuildingId] = useState('');
-  const { data: refs } = useApi<Referentials>('/referentials');
+  const { data: refs } = useApi<Referentials>('/incidents/referentials');
   const filters = { period, categoryId, buildingId };
-  const { data: d, error, loading, reload } = useApi<DashboardResponse>(`/admin/dashboard${query({ ...filters, granularity })}`);
-  useLive((e) => (e.type === 'incident.changed' || e.type === 'alert') && reload());
+  const { data: d, error, loading, reload } = useApi<DashboardResponse>(`/dashboard${query({ ...filters, granularity })}`);
+  useLive((e) => (touches(e) || e.type === 'alert') && reload());
 
   const nf = new Intl.NumberFormat(lang === 'en' ? 'en-GB' : 'fr-FR', { maximumFractionDigits: 1 });
 
@@ -107,10 +108,7 @@ export function DashboardPage() {
           </select>
         </div>
         <div className="dash-filters__export">
-          <a className="btn btn--secondary" href={`/api/admin/dashboard/export.csv${query(filters)}`} download>
-            <Download size={16} strokeWidth={1.75} aria-hidden="true" />
-            {t('Exporter en CSV', 'Export to CSV')}
-          </a>
+          <ExportButton path={`/dashboard/export.csv${query(filters)}`} fileName="tableau-de-bord.csv" />
           <button type="button" className="btn btn--secondary" onClick={() => window.print()}>
             <Printer size={16} strokeWidth={1.75} aria-hidden="true" />
             {t('Exporter en PDF', 'Export to PDF')}

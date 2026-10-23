@@ -38,8 +38,8 @@ function FaqForm({ initial, onDone, onCancel }: { initial?: FaqEntryDto; onDone(
       keywords: v.keywords.split(',').map((k) => k.trim()).filter(Boolean),
     };
     try {
-      if (initial) await api.patch(`/admin/kb/faq/${initial.id}`, body);
-      else await api.post('/admin/kb/faq', body);
+      if (initial) await api.patch(`/knowledge/faq/${initial.id}`, body);
+      else await api.post('/knowledge/faq', body);
       onDone();
     } catch (err) {
       setError(errorText(err, t('Enregistrement impossible.', 'Could not save.')));
@@ -109,7 +109,7 @@ function DocumentForm({ onDone }: { onDone(): void }) {
     ev.preventDefault();
     setError(null);
     try {
-      await api.post('/admin/kb/documents', { title, content, language });
+      await api.post('/knowledge/documents', { title, content, language });
       setTitle('');
       setContent('');
       onDone();
@@ -152,8 +152,8 @@ export function KnowledgePage() {
   const { t, lang } = useI18n();
   const [tab, setTab] = useState<'faq' | 'docs'>('faq');
   const [editing, setEditing] = useState<string | null>(null);
-  const faq = useApi<FaqEntryDto[]>('/admin/kb/faq');
-  const docs = useApi<KbDocumentDto[]>('/admin/kb/documents');
+  const faq = useApi<FaqEntryDto[]>('/knowledge/faq');
+  const docs = useApi<KbDocumentDto[]>('/knowledge/documents');
 
   async function remove(path: string, reload: () => void) {
     if (!window.confirm(t('Supprimer définitivement cette entrée ?', 'Delete this entry permanently?'))) return;
@@ -213,7 +213,7 @@ export function KnowledgePage() {
                       <button type="button" className="btn btn--secondary btn--sm" onClick={() => setEditing(f.id)}>
                         {t('Modifier', 'Edit')}
                       </button>
-                      <button type="button" className="btn btn--ghost btn--sm" onClick={() => void remove(`/admin/kb/faq/${f.id}`, faq.reload)}>
+                      <button type="button" className="btn btn--ghost btn--sm" onClick={() => void remove(`/knowledge/faq/${f.id}`, faq.reload)}>
                         {t('Supprimer', 'Delete')}
                       </button>
                     </div>
@@ -241,7 +241,7 @@ export function KnowledgePage() {
                 <p className="kb-list__meta">
                   {t('Mis à jour le', 'Updated')} {formatDateTime(d.updatedAt, lang)}
                 </p>
-                <button type="button" className="btn btn--ghost btn--sm" onClick={() => void remove(`/admin/kb/documents/${d.id}`, docs.reload)}>
+                <button type="button" className="btn btn--ghost btn--sm" onClick={() => void remove(`/knowledge/documents/${d.id}`, docs.reload)}>
                   {t('Supprimer', 'Delete')}
                 </button>
               </li>

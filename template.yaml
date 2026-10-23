@@ -1,0 +1,580 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Metadata:
+  cfn-lint:
+    config:
+      ignore_checks:
+        - W1030 # ExistingVpcId / PublicSubnetId vides en VpcMode=new (conditions)
+        - W1011 # secrets générés par le script, passés en NoEcho (pas de Secrets Manager pour la démo)
+        - W2531 # Node 20 imposé par l'architecture validée ; nodejs22.x/24.x compatibles sans changement de code
+Description: >
+  SmartCampus AI : architecture validée avec les coachs (us-east-1).
+  CloudFront (S3 front privé + /api/*) → API Gateway HTTP API (authorizer JWT Cognito) → 4 Lambdas Express,
+  Lambda Notifications (EventBridge + SES), Lambda Migrate, RDS PostgreSQL privé, S3 fichiers, Bedrock Nova Lite.
+  Déploiement : npm run deploy:aws (voir DEPLOY.md).
+
+# ---------------------------------------------------------------------------------------------------------
+Parameters:
+  VpcMode:
+    Type: String
+    AllowedValues: [default, new]
+    Default: default
+    Description: >
+      default : VPC par défaut du compte (ExistingVpcId + PublicSubnetId requis, renseignés par le script de déploiement).
+      new : VPC dédié 10.20.0.0/16 créé par la pile.
+  ExistingVpcId:
+    Type: String
+    Default: ''
+    Description: VPC par défaut (VpcMode=default).
+  PublicSubnetId:
+    Type: String
+    Default: ''
+    Description: Sous-réseau public du VPC par défaut qui accueille la NAT Gateway (VpcMode=default).
+  PrivateSubnet1Cidr:
+    Type: String
+    Default: 10.20.11.0/24
+    Description: Sous-réseau privé n°1 (Lambdas + RDS). Doit être libre dans le VPC.
+  PrivateSubnet2Cidr:
+    Type: String
+    Default: 10.20.12.0/24
+    Description: Sous-réseau privé n°2 (Lambdas + RDS), autre zone de disponibilité.
+  LabRoleArn:
+    Type: String
+    Default: ''
+    Description: ARN d'un rôle existant (ex. LabRole du lab) si la création de rôles IAM est interdite ; vide = la pile crée son rôle.
+  DbPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 16
+    AllowedPattern: '[A-Za-z0-9]+'
+    Description: Mot de passe maître RDS (alphanumérique), généré par le script de déploiement.
+  JwtSecret:
+    Type: String
+    NoEcho: true
+    MinLength: 32
+    Description: Secret de signature des jetons de fichiers (généré par le script de déploiement).
+  DemoPassword:
+    Type: String
+    NoEcho: true
+    Default: Campus2026!
+    Description: Mot de passe des comptes de démo (base + Cognito), affiché sur l'écran de connexion.
+  AppUrl:
+    Type: String
+    Default: ''
+    Description: URL CloudFront (https://dxxxx.cloudfront.net), renseignée au 2e passage du script (liens des emails, CORS du bucket fichiers).
+  SesSender:
+    Type: String
+    Default: ''
+    Description: Adresse expéditrice vérifiée dans SES ; vide = emails écrits dans les logs CloudWatch.
+  MailRedirectTo:
+    Type: String
+    Default: ''
+    Description: SES sandbox - redirige tous les emails vers cette adresse vérifiée (vide = destinataires réels).
+  AiDriver:
+    Type: String
+    AllowedValues: [bedrock, mock]
+    Default: bedrock
+  BedrockModelId:
+    Type: String
+    Default: us.amazon.nova-lite-v1:0
+
+Conditions:
+  CreateVpc: !Equals [!Ref VpcMode, new]
+  CreateRole: !Equals [!Ref LabRoleArn, '']
+  HasSender: !Not [!Equals [!Ref SesSender, '']]
+  HasAppUrl: !Not [!Equals [!Ref AppUrl, '']]
+
+# ---------------------------------------------------------------------------------------------------------
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Architectures: [arm64]
+    CodeUri: apps/api/dist/lambda
+    MemorySize: 1024
+    Timeout: 29 # API Gateway coupe à 30 s
+    VpcConfig:
+      SecurityGroupIds: [!Ref LambdaSecurityGroup]
+      SubnetIds: [!Ref PrivateSubnet1, !Ref PrivateSubnet2]
+    Environment:
+      Variables:
+        NODE_ENV: production
+        # Certificats des autorités RDS fournis par le runtime Lambda (connexion TLS vérifiée).
+        NODE_EXTRA_CA_CERTS: /var/runtime/ca-cert.pem
+        DATABASE_URL: !Sub postgresql://smartcampus:${DbPassword}@${Database.Endpoint.Address}:5432/smartcampus?sslmode=verify-full
+        JWT_SECRET: !Ref JwtSecret
+        COOKIE_SECURE: 'true'
+        DEMO_MODE: 'true'
+        DEMO_PASSWORD: !Ref DemoPassword
+        AUTH_PROVIDER: cognito
+        COGNITO_USER_POOL_ID: !Ref UserPool
+        COGNITO_CLIENT_ID: !Ref UserPoolClient
+        STORAGE_DRIVER: s3
+        S3_BUCKET: !Ref FilesBucket
+        MAIL_DRIVER: !If [HasSender, ses, console]
+        MAIL_FROM: !If [HasSender, !Sub 'SmartCampus <${SesSender}>', 'SmartCampus <no-reply@smartcampus.local>']
+        MAIL_REDIRECT_TO: !Ref MailRedirectTo
+        MAIL_OUTBOX_DIR: /tmp/outbox
+        UPLOAD_DIR: /tmp/uploads
+        APP_URL: !If [HasAppUrl, !Ref AppUrl, 'http://localhost:5173']
+        REALTIME_MODE: poll
+        POLL_SECONDS: '20'
+        KB_DRIVER: local
+        AI_DRIVER: !Ref AiDriver
+        BEDROCK_MODEL_ID: !Ref BedrockModelId
+
+Resources:
+  # ======================================= Réseau =======================================================
+  Vpc:
+    Type: AWS::EC2::VPC
+    Condition: CreateVpc
+    Properties:
+      CidrBlock: 10.20.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags: [{ Key: Name, Value: smartcampus }]
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Condition: CreateVpc
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Condition: CreateVpc
+    Properties: { VpcId: !Ref Vpc, InternetGatewayId: !Ref InternetGateway }
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Condition: CreateVpc
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.20.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: false
+      Tags: [{ Key: Name, Value: smartcampus-public }]
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Condition: CreateVpc
+    Properties: { VpcId: !Ref Vpc }
+  PublicDefaultRoute:
+    Type: AWS::EC2::Route
+    Condition: CreateVpc
+    DependsOn: InternetGatewayAttachment
+    Properties: { RouteTableId: !Ref PublicRouteTable, DestinationCidrBlock: 0.0.0.0/0, GatewayId: !Ref InternetGateway }
+  PublicSubnetRoutes:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: CreateVpc
+    Properties: { SubnetId: !Ref PublicSubnet, RouteTableId: !Ref PublicRouteTable }
+
+  # Sous-réseaux privés : Lambdas et RDS, sans adresse publique.
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !If [CreateVpc, !Ref Vpc, !Ref ExistingVpcId]
+      CidrBlock: !Ref PrivateSubnet1Cidr
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags: [{ Key: Name, Value: smartcampus-private-1 }]
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !If [CreateVpc, !Ref Vpc, !Ref ExistingVpcId]
+      CidrBlock: !Ref PrivateSubnet2Cidr
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags: [{ Key: Name, Value: smartcampus-private-2 }]
+
+  # NAT Gateway : sortie Internet des Lambdas (Bedrock, SES, Cognito, invocation Lambda). ~0,045 $/h + données.
+  NatEip:
+    Type: AWS::EC2::EIP
+    Properties: { Domain: vpc }
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatEip.AllocationId
+      SubnetId: !If [CreateVpc, !Ref PublicSubnet, !Ref PublicSubnetId]
+      Tags: [{ Key: Name, Value: smartcampus-nat }]
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !If [CreateVpc, !Ref Vpc, !Ref ExistingVpcId]
+      Tags: [{ Key: Name, Value: smartcampus-private }]
+  PrivateDefaultRoute:
+    Type: AWS::EC2::Route
+    Properties: { RouteTableId: !Ref PrivateRouteTable, DestinationCidrBlock: 0.0.0.0/0, NatGatewayId: !Ref NatGateway }
+  PrivateSubnet1Routes:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: { SubnetId: !Ref PrivateSubnet1, RouteTableId: !Ref PrivateRouteTable }
+  PrivateSubnet2Routes:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: { SubnetId: !Ref PrivateSubnet2, RouteTableId: !Ref PrivateRouteTable }
+  # Endpoint passerelle S3 (gratuit) : le trafic Lambda → S3 ne passe pas par la NAT.
+  S3GatewayEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Gateway
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.s3
+      VpcId: !If [CreateVpc, !Ref Vpc, !Ref ExistingVpcId]
+      RouteTableIds: [!Ref PrivateRouteTable]
+
+  # sg-lambda : aucune entrée ; sortie libre (NAT, endpoint S3, RDS).
+  LambdaSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${AWS::StackName}-sg-lambda
+      GroupDescription: Lambdas SmartCampus - aucune entree
+      VpcId: !If [CreateVpc, !Ref Vpc, !Ref ExistingVpcId]
+      SecurityGroupEgress: [{ IpProtocol: '-1', CidrIp: 0.0.0.0/0, Description: 'Sortie (NAT, S3, RDS)' }]
+  # sg-rds : PostgreSQL 5432 uniquement depuis sg-lambda.
+  RdsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${AWS::StackName}-sg-rds
+      GroupDescription: RDS SmartCampus - 5432 depuis sg-lambda uniquement
+      VpcId: !If [CreateVpc, !Ref Vpc, !Ref ExistingVpcId]
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 5432, ToPort: 5432, SourceSecurityGroupId: !Ref LambdaSecurityGroup, Description: PostgreSQL depuis sg-lambda }
+      SecurityGroupEgress: [{ IpProtocol: '-1', CidrIp: 127.0.0.1/32, Description: Aucune sortie }]
+
+  # ======================================= Données ======================================================
+  DbSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: SmartCampus - sous-reseaux prives
+      SubnetIds: [!Ref PrivateSubnet1, !Ref PrivateSubnet2]
+  Database:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Delete # démo : rien à conserver après le workshop
+    UpdateReplacePolicy: Delete
+    Properties:
+      DBInstanceIdentifier: !Sub ${AWS::StackName}-db
+      Engine: postgres
+      EngineVersion: '16.15'
+      DBInstanceClass: db.t4g.micro
+      AllocatedStorage: '20'
+      StorageType: gp3
+      StorageEncrypted: true
+      PubliclyAccessible: false
+      MultiAZ: false
+      DBName: smartcampus
+      MasterUsername: smartcampus
+      MasterUserPassword: !Ref DbPassword
+      DBSubnetGroupName: !Ref DbSubnetGroup
+      VPCSecurityGroups: [!Ref RdsSecurityGroup]
+      BackupRetentionPeriod: 0
+      DeletionProtection: false
+      AutoMinorVersionUpgrade: true
+
+  FrontBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub smartcampus-front-${AWS::AccountId}
+      OwnershipControls: { Rules: [{ ObjectOwnership: BucketOwnerEnforced }] }
+      PublicAccessBlockConfiguration: { BlockPublicAcls: true, BlockPublicPolicy: true, IgnorePublicAcls: true, RestrictPublicBuckets: true }
+      BucketEncryption: { ServerSideEncryptionConfiguration: [{ ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 } }] }
+  # Seul CloudFront (cette distribution, via OAC) peut lire le front.
+  FrontBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontBucket
+      PolicyDocument:
+        Statement:
+          - Sid: CloudFrontOAC
+            Effect: Allow
+            Principal: { Service: cloudfront.amazonaws.com }
+            Action: s3:GetObject
+            Resource: !Sub ${FrontBucket.Arn}/*
+            Condition: { StringEquals: { AWS:SourceArn: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${Distribution}' } }
+
+  FilesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub smartcampus-files-${AWS::AccountId}
+      OwnershipControls: { Rules: [{ ObjectOwnership: BucketOwnerEnforced }] }
+      PublicAccessBlockConfiguration: { BlockPublicAcls: true, BlockPublicPolicy: true, IgnorePublicAcls: true, RestrictPublicBuckets: true }
+      BucketEncryption: { ServerSideEncryptionConfiguration: [{ ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 } }] }
+      # Envoi direct depuis le navigateur (POST présigné) : uniquement depuis le domaine CloudFront.
+      CorsConfiguration:
+        CorsRules:
+          - AllowedOrigins: !If [HasAppUrl, [!Ref AppUrl], ['*']]
+            AllowedMethods: [POST, GET, HEAD]
+            AllowedHeaders: ['*']
+            MaxAge: 3000
+  FilesBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FilesBucket
+      PolicyDocument:
+        Statement:
+          - Sid: TlsOnly
+            Effect: Deny
+            Principal: '*'
+            Action: s3:*
+            Resource: [!GetAtt FilesBucket.Arn, !Sub '${FilesBucket.Arn}/*']
+            Condition: { Bool: { aws:SecureTransport: 'false' } }
+
+  # ======================================= Identité =====================================================
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub ${AWS::StackName}-users
+      AdminCreateUserConfig: { AllowAdminCreateUserOnly: true }
+      MfaConfiguration: 'OFF'
+      DeletionProtection: INACTIVE
+      Policies:
+        PasswordPolicy: { MinimumLength: 8, RequireLowercase: true, RequireUppercase: true, RequireNumbers: true, RequireSymbols: true }
+      Schema:
+        - { Name: email, AttributeDataType: String, Required: true, Mutable: true }
+        - { Name: name, AttributeDataType: String, Required: false, Mutable: true }
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: smartcampus-web
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      ExplicitAuthFlows: [ALLOW_USER_PASSWORD_AUTH, ALLOW_REFRESH_TOKEN_AUTH]
+      PreventUserExistenceErrors: ENABLED
+      IdTokenValidity: 60
+      AccessTokenValidity: 60
+      RefreshTokenValidity: 12
+      TokenValidityUnits: { IdToken: minutes, AccessToken: minutes, RefreshToken: hours }
+  StudentGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties: { GroupName: STUDENT, UserPoolId: !Ref UserPool, Description: Etudiants }
+  AgentGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties: { GroupName: AGENT, UserPoolId: !Ref UserPool, Description: Agents techniques }
+  AdminGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties: { GroupName: ADMIN, UserPoolId: !Ref UserPool, Description: Administration }
+
+  # ======================================= IAM (si autorisé) ============================================
+  AppRole:
+    Type: AWS::IAM::Role
+    Condition: CreateRole
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement: [{ Effect: Allow, Principal: { Service: lambda.amazonaws.com }, Action: sts:AssumeRole }]
+      ManagedPolicyArns: [arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole]
+      Policies:
+        - PolicyName: smartcampus
+          PolicyDocument:
+            Statement:
+              - { Effect: Allow, Action: [s3:GetObject, s3:PutObject, s3:DeleteObject], Resource: !Sub '${FilesBucket.Arn}/*' }
+              - { Effect: Allow, Action: [ses:SendEmail, ses:SendRawEmail], Resource: '*' }
+              - { Effect: Allow, Action: [bedrock:InvokeModel, bedrock:Converse], Resource: '*' }
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${AWS::StackName}-notifications
+              - Effect: Allow
+                Action:
+                  - cognito-idp:AdminGetUser
+                  - cognito-idp:AdminCreateUser
+                  - cognito-idp:AdminSetUserPassword
+                  - cognito-idp:AdminListGroupsForUser
+                  - cognito-idp:AdminAddUserToGroup
+                  - cognito-idp:AdminRemoveUserFromGroup
+                  - cognito-idp:AdminDisableUser
+                  - cognito-idp:AdminUserGlobalSignOut
+                Resource: !GetAtt UserPool.Arn
+
+  # ======================================= Lambdas ======================================================
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Auth:
+        DefaultAuthorizer: CognitoJwt
+        Authorizers:
+          CognitoJwt:
+            IdentitySource: $request.header.Authorization
+            JwtConfiguration:
+              issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}
+              audience: [!Ref UserPoolClient]
+
+  # US-01 à US-18, US-34, US-37/38 : tickets, traitement, délais, utilisateurs, notifications, audit, RGPD, connexion.
+  IncidentsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-incidents
+      Handler: http.handler
+      Role: !If [CreateRole, !GetAtt AppRole.Arn, !Ref LabRoleArn]
+      Environment:
+        Variables:
+          # Chaque changement de statut : email confié à la Lambda Notifications (asynchrone).
+          MAIL_DRIVER: lambda
+          NOTIFICATIONS_FUNCTION: !Ref NotificationsFunction
+      Events:
+        Health: { Type: HttpApi, Properties: { ApiId: !Ref HttpApi, Path: /api/health, Method: GET, Auth: { Authorizer: NONE } } }
+        Login: { Type: HttpApi, Properties: { ApiId: !Ref HttpApi, Path: /api/auth/login, Method: POST, Auth: { Authorizer: NONE } } }
+        Refresh: { Type: HttpApi, Properties: { ApiId: !Ref HttpApi, Path: /api/auth/refresh, Method: POST, Auth: { Authorizer: NONE } } }
+        Logout: { Type: HttpApi, Properties: { ApiId: !Ref HttpApi, Path: /api/auth/logout, Method: POST, Auth: { Authorizer: NONE } } }
+        DemoAccounts: { Type: HttpApi, Properties: { ApiId: !Ref HttpApi, Path: /api/auth/demo-accounts, Method: GET, Auth: { Authorizer: NONE } } }
+        Auth: { Type: HttpApi, Properties: { ApiId: !Ref HttpApi, Path: '/api/auth/{proxy+}', Method: ANY } }
+        Incidents: { Type: HttpApi, Properties: { ApiId: !Ref HttpApi, Path: /api/incidents, Method: ANY } }
+        IncidentsAny: { Type: HttpApi, Properties: { ApiId: !Ref HttpApi, Path: '/api/incidents/{proxy+}', Method: ANY } }
+        Drafts: { Type: HttpApi, Properties: { ApiId: !Ref HttpApi, Path: /api/drafts, Method: ANY } }
+        DraftsAny: { Type: HttpApi, Properties: { ApiId: !Ref HttpApi, Path: '/api/drafts/{proxy+}', Method: ANY } }
+        Sla: { Type: HttpApi, Properties: { ApiId: !Ref HttpApi, Path: /api/sla, Method: ANY } }
+        SlaAny: { Type: HttpApi, Properties: { ApiId: !Ref HttpApi, Path: '/api/sla/{proxy+}', Method: ANY } }
+        Users: { Type: HttpApi, Properties: { ApiId: !Ref HttpApi, Path: /api/users, Method: ANY } }
+        UsersAny: { Type: HttpApi, Properties: { ApiId: !Ref HttpApi, Path: '/api/users/{proxy+}', Method: ANY } }
+        Notifications: { Type: HttpApi, Properties: { ApiId: !Ref HttpApi, Path: /api/notifications, Method: ANY } }
+        NotificationsAny: { Type: HttpApi, Properties: { ApiId: !Ref HttpApi, Path: '/api/notifications/{proxy+}', Method: ANY } }
+        Audit: { Type: HttpApi, Properties: { ApiId: !Ref HttpApi, Path: /api/audit, Method: ANY } }
+        AuditAny: { Type: HttpApi, Properties: { ApiId: !Ref HttpApi, Path: '/api/audit/{proxy+}', Method: ANY } }
+        Privacy: { Type: HttpApi, Properties: { ApiId: !Ref HttpApi, Path: /api/privacy, Method: ANY } }
+        PrivacyAny: { Type: HttpApi, Properties: { ApiId: !Ref HttpApi, Path: '/api/privacy/{proxy+}', Method: ANY } }
+
+  # US-27 à US-33 : tableau de bord, KPI, exports.
+  DashboardFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-dashboard
+      Handler: http.handler
+      Role: !If [CreateRole, !GetAtt AppRole.Arn, !Ref LabRoleArn]
+      Events:
+        Dashboard: { Type: HttpApi, Properties: { ApiId: !Ref HttpApi, Path: /api/dashboard, Method: ANY } }
+        DashboardAny: { Type: HttpApi, Properties: { ApiId: !Ref HttpApi, Path: '/api/dashboard/{proxy+}', Method: ANY } }
+
+  # US-19 à US-26 : assistant (Bedrock Nova Lite, repli automatique sur le mock) et base documentaire.
+  AssistantFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-assistant
+      Handler: http.handler
+      Role: !If [CreateRole, !GetAtt AppRole.Arn, !Ref LabRoleArn]
+      Events:
+        Assistant: { Type: HttpApi, Properties: { ApiId: !Ref HttpApi, Path: /api/assistant, Method: ANY } }
+        AssistantAny: { Type: HttpApi, Properties: { ApiId: !Ref HttpApi, Path: '/api/assistant/{proxy+}', Method: ANY } }
+        Knowledge: { Type: HttpApi, Properties: { ApiId: !Ref HttpApi, Path: /api/knowledge, Method: ANY } }
+        KnowledgeAny: { Type: HttpApi, Properties: { ApiId: !Ref HttpApi, Path: '/api/knowledge/{proxy+}', Method: ANY } }
+
+  # US-04 / US-24 : URL présignées d'envoi (10 Mo, au-delà de la limite d'API Gateway) et de lecture.
+  FilesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-files
+      Handler: http.handler
+      Role: !If [CreateRole, !GetAtt AppRole.Arn, !Ref LabRoleArn]
+      Events:
+        Files: { Type: HttpApi, Properties: { ApiId: !Ref HttpApi, Path: /api/files, Method: ANY } }
+        FilesAny: { Type: HttpApi, Properties: { ApiId: !Ref HttpApi, Path: '/api/files/{proxy+}', Method: ANY } }
+
+  # US-10 (emails SES, invoquée par Incidents) et US-18 (contrôle des délais toutes les 15 minutes).
+  NotificationsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-notifications
+      Handler: notifications.handler
+      Timeout: 60
+      Role: !If [CreateRole, !GetAtt AppRole.Arn, !Ref LabRoleArn]
+      Events:
+        OverdueCheck:
+          Type: Schedule
+          Properties:
+            Name: !Sub ${AWS::StackName}-overdue-check
+            Schedule: rate(15 minutes)
+            Description: US-18 - tickets NOUVEAU au-dela du delai cible
+
+  # Migrations + données de démo + comptes Cognito, invoquée par npm run migrate:aws (et deploy:aws).
+  MigrateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-migrate
+      Handler: migrate.handler
+      Timeout: 300
+      Role: !If [CreateRole, !GetAtt AppRole.Arn, !Ref LabRoleArn]
+
+  # ======================================= Diffusion ====================================================
+  FrontOac:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub ${AWS::StackName}-front-oac
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # API : rien en cache (TTL 0), mais l'en-tête Authorization doit atteindre API Gateway (authorizer JWT).
+  ApiCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: !Sub ${AWS::StackName}-api
+        MinTTL: 0
+        DefaultTTL: 0
+        MaxTTL: 1
+        ParametersInCacheKeyAndForwardedToOrigin:
+          EnableAcceptEncodingGzip: true
+          EnableAcceptEncodingBrotli: true
+          HeadersConfig: { HeaderBehavior: whitelist, Headers: [Authorization] }
+          QueryStringsConfig: { QueryStringBehavior: all }
+          CookiesConfig: { CookieBehavior: none }
+
+  # Retour à /index.html pour les routes de l'application (rechargement, lien direct).
+  # Fonction plutôt que réponses d'erreur 403/404 personnalisées : celles-ci s'appliqueraient aussi à /api/*
+  # et remplaceraient les erreurs JSON de l'API (403 accès refusé, 404 ticket d'un autre étudiant) par la page HTML.
+  SpaRewriteFunction:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: !Sub ${AWS::StackName}-spa-rewrite
+      AutoPublish: true
+      FunctionConfig: { Comment: Routes SPA vers index.html, Runtime: cloudfront-js-2.0 }
+      FunctionCode: |
+        function handler(event) {
+          var request = event.request;
+          var last = request.uri.split('/').pop();
+          if (last.indexOf('.') === -1) request.uri = '/index.html';
+          return request;
+        }
+
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: SmartCampus AI
+        Enabled: true
+        HttpVersion: http2and3
+        PriceClass: PriceClass_100
+        DefaultRootObject: index.html
+        ViewerCertificate: { CloudFrontDefaultCertificate: true }
+        Origins:
+          - Id: front
+            DomainName: !GetAtt FrontBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt FrontOac.Id
+            S3OriginConfig: { OriginAccessIdentity: '' }
+          - Id: api
+            DomainName: !Sub ${HttpApi}.execute-api.${AWS::Region}.amazonaws.com
+            CustomOriginConfig: { OriginProtocolPolicy: https-only, OriginSSLProtocols: [TLSv1.2] }
+        DefaultCacheBehavior:
+          TargetOriginId: front
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: true
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # Managed-CachingOptimized
+          ResponseHeadersPolicyId: 67f7725c-6f97-4210-82d7-5512b31e9d03 # Managed-SecurityHeadersPolicy
+          FunctionAssociations: [{ EventType: viewer-request, FunctionARN: !GetAtt SpaRewriteFunction.FunctionMetadata.FunctionARN }]
+        CacheBehaviors:
+          - PathPattern: /api/*
+            TargetOriginId: api
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE]
+            CachedMethods: [GET, HEAD]
+            Compress: true
+            CachePolicyId: !Ref ApiCachePolicy
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac # Managed-AllViewerExceptHostHeader
+
+# ---------------------------------------------------------------------------------------------------------
+Outputs:
+  AppUrl:
+    Description: URL de l'application
+    Value: !Sub https://${Distribution.DomainName}
+  DistributionId:
+    Value: !Ref Distribution
+  ApiUrl:
+    Value: !Sub https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com
+  FrontBucketName:
+    Value: !Ref FrontBucket
+  FilesBucketName:
+    Value: !Ref FilesBucket
+  MigrateFunctionName:
+    Value: !Ref MigrateFunction
+  UserPoolId:
+    Value: !Ref UserPool
+  UserPoolClientId:
+    Value: !Ref UserPoolClient
+  DatabaseEndpoint:
+    Value: !GetAtt Database.Endpoint.Address

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { ROLE_LABELS, STATUS_LABELS, URGENCY_LABELS, type IncidentDetail, type IncidentEventDto } from '@smartcampus/shared';
 import { formatDateTime } from '../lib/format';
+import { useApi } from '../lib/useApi';
 import { useI18n } from '../lib/i18n';
 import { LateBadge, PriorityBadge, StatusBadge } from './Badges';
 import { LocationPlate } from './LocationPlate';
@@ -91,21 +92,7 @@ export function IncidentView({ incident: x, actions, aside, showOwner = false, l
               )}
             </p>
           )}
-          {x.attachmentKind === 'pdf' && (
-            <p className="incident__file">
-              <a className="btn btn--secondary" href={`/api/incidents/${x.id}/photo`} target="_blank" rel="noreferrer">
-                <FileText size={16} strokeWidth={1.75} aria-hidden="true" />
-                {t('Ouvrir le document joint (PDF)', 'Open the attached document (PDF)')}
-              </a>
-            </p>
-          )}
-          {x.attachmentKind === 'image' && (
-            <figure className="incident__photo">
-              <a href={`/api/incidents/${x.id}/photo`} target="_blank" rel="noreferrer">
-                <img src={`/api/incidents/${x.id}/photo`} alt={t(`Photo jointe au ticket ${x.ticketNumber}`, `Photo attached to ticket ${x.ticketNumber}`)} loading="lazy" />
-              </a>
-            </figure>
-          )}
+          {x.attachmentKind && <Attachment id={x.id} kind={x.attachmentKind} ticketNumber={x.ticketNumber} />}
           <dl className="facts">
             <div>
               <dt>{t('Lieu', 'Location')}</dt>
@@ -149,5 +136,27 @@ export function IncidentView({ incident: x, actions, aside, showOwner = false, l
         </div>
       </div>
     </article>
+  );
+}
+
+/** US-04 : pièce jointe lue par une URL à courte durée, délivrée seulement si l'utilisateur voit le ticket. */
+function Attachment({ id, kind, ticketNumber }: { id: string; kind: 'image' | 'pdf'; ticketNumber: string }) {
+  const { t } = useI18n();
+  const { data, error } = useApi<{ url: string }>(`/files/incidents/${id}`);
+  if (error) return <p className="field__help">{t('Pièce jointe indisponible.', 'Attachment unavailable.')}</p>;
+  if (!data) return null;
+  return kind === 'pdf' ? (
+    <p className="incident__file">
+      <a className="btn btn--secondary" href={data.url} target="_blank" rel="noreferrer">
+        <FileText size={16} strokeWidth={1.75} aria-hidden="true" />
+        {t('Ouvrir le document joint (PDF)', 'Open the attached document (PDF)')}
+      </a>
+    </p>
+  ) : (
+    <figure className="incident__photo">
+      <a href={data.url} target="_blank" rel="noreferrer">
+        <img src={data.url} alt={t(`Photo jointe au ticket ${ticketNumber}`, `Photo attached to ticket ${ticketNumber}`)} loading="lazy" />
+      </a>
+    </figure>
   );
 }

@@ -25,14 +25,23 @@ export function authRouter(container: Container): Router {
 
   router.post('/login', container.loginLimiter.guard(), async (req, res) => {
     const { email, password } = parseBody(loginSchema, req.body);
-    const user = await container.auth.authenticate(email, password);
-    if (!user) {
+    const result = await container.auth.authenticate(email, password);
+    if (!result) {
       container.loginLimiter.fail(req);
       throw new UnauthorizedError(bi('Email ou mot de passe incorrect.', 'Incorrect email or password.'));
     }
     container.loginLimiter.succeed(req);
-    await container.sessions.issue(res, user);
-    res.json(user);
+    await container.sessions.issue(res, result.user);
+    // Cognito : le navigateur garde les jetons et les envoie en `Authorization: Bearer` (vérifiés par API Gateway).
+    res.json(result.tokens ? { ...result.user, tokens: result.tokens } : result.user);
+  });
+
+  /** Cognito : nouvel idToken à partir du jeton de rafraîchissement (session de démo prolongée). */
+  router.post('/refresh', async (req, res) => {
+    const { refreshToken } = parseBody(z.object({ refreshToken: z.string().min(1).max(4096) }), req.body);
+    const tokens = await container.auth.refresh(refreshToken);
+    if (!tokens) throw new UnauthorizedError();
+    res.json(tokens);
   });
 
   router.post('/logout', (_req, res) => {

@@ -17,7 +17,7 @@ function TargetRow({ c, onSaved }: { c: CategoryDto; onSaved(): void }) {
   async function save() {
     setState({ kind: 'saving' });
     try {
-      await api.patch(`/admin/categories/${c.id}`, { targetHours: Number(value) });
+      await api.patch(`/sla/categories/${c.id}`, { targetHours: Number(value) });
       setState({ kind: 'saved' });
       onSaved();
     } catch (err) {
@@ -69,7 +69,7 @@ function TargetRow({ c, onSaved }: { c: CategoryDto; onSaved(): void }) {
 /** US-18 : délais cibles de prise en charge par catégorie (24 h par défaut). */
 export function AdminSettingsPage() {
   const { t } = useI18n();
-  const { data, error, reload } = useApi<CategoryDto[]>('/admin/categories');
+  const { data, error, reload } = useApi<CategoryDto[]>('/sla/categories');
 
   return (
     <section className="settings">

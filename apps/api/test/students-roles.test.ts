@@ -10,11 +10,11 @@ beforeAll(async () => {
 afterAll(() => api.stop());
 
 const setRole = (who: 'claire' | 'karim', userId: string, role: string) =>
-  api.call(who, `/admin/users/${userId}/role`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ role }) });
+  api.call(who, `/users/${userId}/role`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ role }) });
 
 describe('US-02 attribution des rôles', () => {
   it('l’admin promeut un étudiant ; effet immédiat ; audit ROLE_CHANGE', async () => {
-    expect((await api.call('bob', '/agents')).status).toBe(403);
+    expect((await api.call('bob', '/users/agents')).status).toBe(403);
     const res = await setRole('claire', api.ids.bob, 'AGENT');
     expect(res.status).toBe(200);
     expect(((await res.json()) as { role: string }).role).toBe('AGENT');
@@ -35,7 +35,7 @@ describe('US-02 attribution des rôles', () => {
   });
 
   it('recherche par nom ou email', async () => {
-    const rows = await api.json<{ email: string }[]>('claire', '/admin/users?q=durand');
+    const rows = await api.json<{ email: string }[]>('claire', '/users?q=durand');
     expect(rows.map((r) => r.email)).toEqual(['bob.durand@esiea.fr']);
   });
 });
@@ -43,7 +43,7 @@ describe('US-02 attribution des rôles', () => {
 describe('US-06 incident similaire', () => {
   it('liste les tickets ouverts même catégorie + même bâtiment, sans description ni auteur', async () => {
     const t = await api.createTicket('bob', { slug: 'proprete', buildingIndex: 4 });
-    const refs = await api.json<{ categories: { id: string; slug: string }[]; buildings: { id: string }[] }>('alice', '/referentials');
+    const refs = await api.json<{ categories: { id: string; slug: string }[]; buildings: { id: string }[] }>('alice', '/incidents/referentials');
     const cat = refs.categories.find((c) => c.slug === 'proprete')!.id;
     const res = await api.call('alice', `/incidents/similar?categoryId=${cat}&buildingId=${refs.buildings[4]!.id}`);
     const items = (await res.json()) as Record<string, unknown>[];

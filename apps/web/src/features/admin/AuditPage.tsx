@@ -36,7 +36,7 @@ function details(e: AuditEntryDto, t: (fr: string, en: string) => string): strin
 export function AuditPage() {
   const { t, label, lang } = useI18n();
   const [action, setAction] = useState<AuditAction | ''>('');
-  const { data, error } = useApi<AuditEntryDto[]>(`/admin/audit${action ? `?action=${action}` : ''}`);
+  const { data, error } = useApi<AuditEntryDto[]>(`/audit${action ? `?action=${action}` : ''}`);
 
   return (
     <section className="audit">

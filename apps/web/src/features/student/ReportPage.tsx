@@ -12,7 +12,7 @@ import {
   type TriageSuggestion,
   type Urgency,
 } from '@smartcampus/shared';
-import { ApiRequestError, api } from '../../lib/api';
+import { ApiRequestError, api, uploadFile } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { formatAgo } from '../../lib/format';
 import { useI18n } from '../../lib/i18n';
@@ -66,7 +66,7 @@ export function ReportPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const prefill = (location.state as { prefill?: ReportPrefill } | null)?.prefill;
-  const { data: refs, error: refsError } = useApi<Referentials>('/referentials');
+  const { data: refs, error: refsError } = useApi<Referentials>('/incidents/referentials');
   // Un pré-remplissage de l'assistant l'emporte sur le brouillon.
   const [draft] = useState(() => (prefill ? null : readDraft(user?.id)));
   const [draftRestored, setDraftRestored] = useState(draft !== null);
@@ -223,18 +223,21 @@ export function ReportPage() {
       document.getElementById(`f-${Object.keys(clientErrors)[0]}`)?.focus();
       return;
     }
-    const form = new FormData();
-    form.set('categoryId', categoryId);
-    form.set('buildingId', buildingId);
-    form.set('room', room.trim());
-    form.set('description', description.trim());
-    form.set('urgency', urgency);
-    if (prefill?.interactionId) form.set('assistantInteractionId', prefill.interactionId);
-    if (photo) form.set('photo', photo);
-
     setBusy(true);
     try {
-      setCreated(await api.post<IncidentSummary>('/incidents', form));
+      // US-04 : le fichier part directement vers le stockage (URL présignée), le ticket ne porte que sa clé.
+      const attachmentKey = photo ? await uploadFile(photo) : undefined;
+      setCreated(
+        await api.post<IncidentSummary>('/incidents', {
+          categoryId,
+          buildingId,
+          room: room.trim(),
+          description: description.trim(),
+          urgency,
+          assistantInteractionId: prefill?.interactionId,
+          attachmentKey,
+        }),
+      );
       if (user) {
         try {
           localStorage.removeItem(draftKey(user.id));

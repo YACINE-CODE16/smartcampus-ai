@@ -30,7 +30,7 @@ export function AssistantPage() {
   const { user } = useAuth();
   const { t, category } = useI18n();
   const navigate = useNavigate();
-  const { data: refs } = useApi<Referentials>('/referentials');
+  const { data: refs } = useApi<Referentials>('/incidents/referentials');
   const [messages, setMessages] = useState<Message[]>(() => (user ? loadMessages(user.id) : []));
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);

@@ -2,7 +2,6 @@ import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import type { Role, SessionUser } from '@smartcampus/shared';
 import type { Container } from '../../container';
 import { ForbiddenError, UnauthorizedError } from '../../domain/errors';
-import { SESSION_COOKIE } from '../session';
 
 declare module 'express-serve-static-core' {
   interface Request {
@@ -10,11 +9,14 @@ declare module 'express-serve-static-core' {
   }
 }
 
-/** Vérifie le cookie de session et recharge l'utilisateur (le rôle vient de la base, pas du client). */
+/**
+ * Identifie l'appelant (cookie de session en local, jeton Cognito vérifié par API Gateway sur AWS)
+ * et recharge l'utilisateur : le rôle vient de la base, pas du client.
+ */
 export function requireAuth(container: Container): RequestHandler {
   return async (req: Request, _res: Response, next: NextFunction) => {
-    const userId = await container.sessions.verify(req.cookies?.[SESSION_COOKIE]);
-    const user = userId ? await container.auth.findUser(userId) : null;
+    const who = await container.sessions.identify(req);
+    const user = !who ? null : 'userId' in who ? await container.auth.findUser(who.userId) : await container.auth.findUserByEmail(who.email);
     if (!user) return next(new UnauthorizedError());
     req.user = user;
     next();

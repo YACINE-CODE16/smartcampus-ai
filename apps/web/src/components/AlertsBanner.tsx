@@ -3,20 +3,20 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 import type { AlertsResponse } from '@smartcampus/shared';
 import { useI18n } from '../lib/i18n';
-import { useLive } from '../lib/live';
+import { touches, useLive } from '../lib/live';
 import { useApi } from '../lib/useApi';
 
 /** R3 + US-18 : alertes admin (tickets critiques ouverts, tickets en retard), mises à jour en temps réel. */
 export function AlertsBanner() {
   const { t } = useI18n();
-  const { data, reload } = useApi<AlertsResponse>('/admin/alerts');
+  const { data, reload } = useApi<AlertsResponse>('/sla/alerts');
   const [flash, setFlash] = useState<string | null>(null);
 
   useLive((e) => {
     if (e.type === 'alert') {
       setFlash(e.kind === 'critical' ? t('Nouveau ticket critique !', 'New critical ticket!') : t('Un ticket a dépassé son délai cible.', 'A ticket is overdue.'));
       reload();
-    } else if (e.type === 'incident.changed') {
+    } else if (touches(e)) {
       reload();
     }
   });

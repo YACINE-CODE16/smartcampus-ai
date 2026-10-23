@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { SessionUser } from '@smartcampus/shared';
-import { api, setUnauthorizedHandler } from './api';
+import type { LoginResponse, SessionUser } from '@smartcampus/shared';
+import { api, setTokens, setUnauthorizedHandler } from './api';
 
 interface AuthState {
   user: SessionUser | null;
@@ -17,7 +17,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setUnauthorizedHandler(() => setUser(null));
+    setUnauthorizedHandler(() => {
+      setTokens(null);
+      setUser(null);
+    });
     api
       .get<SessionUser>('/auth/me')
       .then(setUser)
@@ -26,13 +29,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    const u = await api.post<SessionUser>('/auth/login', { email, password });
+    const { tokens, ...u } = await api.post<LoginResponse>('/auth/login', { email, password });
+    setTokens(tokens);
     setUser(u);
     return u;
   }, []);
 
   const logout = useCallback(async () => {
     await api.post('/auth/logout').catch(() => undefined);
+    setTokens(null);
     setUser(null);
   }, []);
 

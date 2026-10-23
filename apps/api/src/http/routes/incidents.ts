@@ -53,6 +53,7 @@ const createSchema = z.object({
     .max(SETTINGS.description.max, bi(`${SETTINGS.description.max} caractères maximum`, `${SETTINGS.description.max} characters max`)),
   urgency: z.enum(URGENCIES).default('NORMALE'),
   assistantInteractionId: z.uuid().optional(),
+  attachmentKey: z.string().max(80).optional(),
 });
 
 export const listSchema = z.object({
@@ -116,7 +117,7 @@ export function incidentsRouter(container: Container): Router {
   const router = Router();
   const { incidents, workflow } = container;
 
-  router.get('/referentials', async (_req, res) => {
+  router.get('/incidents/referentials', async (_req, res) => {
     const body: Referentials = await incidents.referentials();
     res.json(body);
   });
@@ -139,13 +140,6 @@ export function incidentsRouter(container: Container): Router {
 
   router.get('/incidents/:id', async (req, res) => {
     res.json(await incidents.get(currentUser(req), parseId(req.params.id)));
-  });
-
-  router.get('/incidents/:id/photo', async (req, res) => {
-    const file = await incidents.photo(currentUser(req), parseId(req.params.id));
-    res.setHeader('Content-Type', file.contentType);
-    res.setHeader('Cache-Control', 'private, max-age=300');
-    file.body.pipe(res);
   });
 
   router.post('/incidents/:id/take', requireRole('AGENT', 'ADMIN'), async (req, res) => {

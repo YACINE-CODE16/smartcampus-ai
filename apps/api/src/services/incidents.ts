@@ -6,6 +6,7 @@ import {
   formatTicketNumber,
   isLate,
   OPEN_STATUSES,
+  SETTINGS,
   type IncidentDetail,
   type IncidentListQuery,
   type IncidentSummary,
@@ -15,7 +16,7 @@ import {
 import type { PrismaClient } from '../db';
 import { NotFoundError, ValidationError } from '../domain/errors';
 import { Prisma } from '../generated/prisma/client';
-import type { FileStorage, StoredFile } from '../ports/file-storage';
+import { EXTENSIONS, FILE_KEY_PATTERN, type FileStorage, type UploadTarget } from '../ports/file-storage';
 import type { LiveHub } from '../realtime/hub';
 import type { NotificationService } from './notifications';
 
@@ -44,7 +45,14 @@ export interface NewIncidentInput {
   urgency: Urgency;
   /** Échange avec l'assistant à l'origine du ticket (US-21, US-31). */
   assistantInteractionId?: string;
+  /** Pièce jointe déjà envoyée directement au stockage (URL présignée, US-04). */
+  attachmentKey?: string;
 }
+
+/** Durée de validité des URL d'envoi et de lecture des pièces jointes. */
+const FILE_URL_TTL_SECONDS = 300;
+const MAX_FILE_BYTES = SETTINGS.maxPhotoMb * 1024 * 1024;
+const FILE_ERROR = bi('Photo JPG/PNG ou document PDF de 10 Mo maximum', 'JPG/PNG photo or PDF document, 10 MB max');
 
 export interface PhotoUpload {
   buffer: Buffer;
@@ -181,11 +189,18 @@ export class IncidentService {
       photoType = detectFileType(photo.buffer);
       if (!photoType) fields.photo = bi('Photo JPG/PNG ou document PDF de 10 Mo maximum', 'JPG/PNG photo or PDF document, 10 MB max');
     }
+    // Pièce jointe envoyée directement au stockage : on vérifie qu'elle existe, sa taille et sa signature.
+    let uploadedKey: string | null = null;
+    if (!photo && input.attachmentKey) {
+      uploadedKey = await this.checkUploaded(input.attachmentKey).catch(() => null);
+      if (!uploadedKey) fields.photo = FILE_ERROR;
+    }
+
     if (!category || !building || Object.keys(fields).length) {
       throw new ValidationError(bi('Certains champs sont invalides.', 'Some fields are invalid.'), fields);
     }
 
-    let photoKey: string | null = null;
+    let photoKey: string | null = uploadedKey;
     if (photo && photoType) {
       photoKey = `incidents/${randomUUID()}.${photoType}`;
       await this.storage.put(photoKey, photo.buffer, MIME[photoType]);
@@ -251,12 +266,33 @@ export class IncidentService {
     return toDetail(row);
   }
 
-  /** US-04 : photo servie après contrôle d'accès. */
-  async photo(user: SessionUser, id: string): Promise<StoredFile> {
+  /** Valide une pièce jointe envoyée par URL présignée ; renvoie sa clé ou lève une erreur. */
+  private async checkUploaded(key: string): Promise<string> {
+    if (!FILE_KEY_PATTERN.test(key)) throw new Error('clé invalide');
+    const [file, used] = await Promise.all([this.storage.readHead(key, 16), this.prisma.incident.findFirst({ where: { photoKey: key }, select: { id: true } })]);
+    if (!file || used || file.size > MAX_FILE_BYTES) throw new Error('fichier absent, trop gros ou déjà utilisé');
+    const type = detectFileType(file.head);
+    if (!type || !key.endsWith(`.${type}`)) {
+      await this.storage.delete(key).catch(() => undefined);
+      throw new Error('signature binaire non conforme');
+    }
+    return key;
+  }
+
+  /** US-04 : URL d'envoi direct d'une pièce jointe (photo ou PDF, 10 Mo max). */
+  async requestUpload(contentType: string, size: number): Promise<UploadTarget> {
+    const ext = EXTENSIONS[contentType];
+    if (!ext || !SETTINGS.acceptedPhotoTypes.includes(contentType) || size <= 0 || size > MAX_FILE_BYTES) {
+      throw new ValidationError(undefined, { photo: FILE_ERROR });
+    }
+    return this.storage.createUpload(`incidents/${randomUUID()}.${ext}`, contentType, MAX_FILE_BYTES, FILE_URL_TTL_SECONDS);
+  }
+
+  /** US-04 : URL de lecture à courte durée, délivrée seulement à qui peut voir le ticket (R1). */
+  async attachmentUrl(user: SessionUser, id: string): Promise<{ url: string; kind: 'image' | 'pdf' }> {
     const row = await this.prisma.incident.findFirst({ where: { AND: [{ id }, visibleTo(user)] }, select: { photoKey: true } });
-    const file = row?.photoKey ? await this.storage.get(row.photoKey) : null;
-    if (!file) throw new NotFoundError(bi('Photo introuvable.', 'Photo not found.'));
-    return file;
+    if (!row?.photoKey) throw new NotFoundError(bi('Pièce jointe introuvable.', 'Attachment not found.'));
+    return { url: await this.storage.readUrl(row.photoKey, FILE_URL_TTL_SECONDS), kind: row.photoKey.endsWith('.pdf') ? 'pdf' : 'image' };
   }
 
   /** US-06 : tickets ouverts similaires (même catégorie + même bâtiment), sans description ni auteur. */

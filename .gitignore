@@ -35,3 +35,13 @@ apps/api/storage/
 !.env.example
 !.env.prod.example
 !.env.local-test
+uploads/
+storage/
+
+# AWS : artefacts SAM, configuration de déploiement (contient les secrets générés), identifiants
+.aws-sam/
+.aws-deploy.json
+samconfig.toml
+.aws/
+*.pem
+credentials

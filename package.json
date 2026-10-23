@@ -19,7 +19,11 @@
     "db:migrate": "npm run db:migrate -w @smartcampus/api",
     "db:studio": "npm run db:studio -w @smartcampus/api",
     "test": "vitest run",
-    "seed": "npm run seed -w @smartcampus/api"
+    "seed": "npm run seed -w @smartcampus/api",
+    "deploy:aws": "node scripts/aws/deploy.mjs",
+    "migrate:aws": "node scripts/aws/migrate.mjs",
+    "destroy:aws": "node scripts/aws/destroy.mjs",
+    "build:lambda": "npm run build:lambda -w @smartcampus/api"
   },
   "devDependencies": {
     "concurrently": "^10.0.6",

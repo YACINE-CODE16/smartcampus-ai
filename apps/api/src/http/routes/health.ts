@@ -13,6 +13,7 @@ export function healthRouter(container: Container): Router {
       version: process.env.npm_package_version ?? '0.0.0',
       database: dbOk ? 'ok' : 'error',
       adapters: container.adapterNames,
+      realtime: { mode: container.env.REALTIME_MODE, pollSeconds: container.env.POLL_SECONDS },
     };
     res.status(dbOk ? 200 : 503).json(body);
   });

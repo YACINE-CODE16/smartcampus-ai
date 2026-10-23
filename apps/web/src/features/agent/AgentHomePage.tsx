@@ -2,7 +2,7 @@ import { useSearchParams } from 'react-router';
 import { CLOSED_STATUSES, PRIORITY_RANK, type IncidentSummary } from '@smartcampus/shared';
 import { TicketTable } from '../../components/TicketTable';
 import { useI18n } from '../../lib/i18n';
-import { useLive } from '../../lib/live';
+import { touches, useLive } from '../../lib/live';
 import { useApi } from '../../lib/useApi';
 
 /** File de traitement : critique d'abord, puis les plus anciens (US-14). */
@@ -18,7 +18,7 @@ export function AgentHomePage() {
   const mine = useApi<IncidentSummary[]>('/incidents?scope=mine');
   const queue = useApi<IncidentSummary[]>('/incidents?scope=unassigned');
   useLive((e) => {
-    if (e.type === 'incident.changed') {
+    if (touches(e)) {
       mine.reload();
       queue.reload();
     }

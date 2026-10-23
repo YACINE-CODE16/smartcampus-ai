@@ -73,14 +73,14 @@ describe('étudiant (R1)', () => {
     expect(list.every((t) => t.owner.id === ids.alice)).toBe(true);
   });
 
-  it("reçoit 404 sur le ticket et la photo d'un autre étudiant", async () => {
+  it("reçoit 404 sur le ticket et la pièce jointe d'un autre étudiant", async () => {
     const [aliceTicket] = (await (await call('alice', '/incidents')).json()) as IncidentSummary[];
     expect((await call('bob', `/incidents/${aliceTicket!.id}`)).status).toBe(404);
-    expect((await call('bob', `/incidents/${aliceTicket!.id}/photo`)).status).toBe(404);
+    expect((await call('bob', `/files/incidents/${aliceTicket!.id}`)).status).toBe(404);
   });
 
   it('crée un ticket NOUVEAU avec historique initial ; Sécurité → CRITIQUE', async () => {
-    const refs = (await (await call('alice', '/referentials')).json()) as Referentials;
+    const refs = (await (await call('alice', '/incidents/referentials')).json()) as Referentials;
     const form = new FormData();
     form.set('categoryId', refs.categories.find((c) => c.slug === 'securite')!.id);
     form.set('buildingId', refs.buildings[0]!.id);

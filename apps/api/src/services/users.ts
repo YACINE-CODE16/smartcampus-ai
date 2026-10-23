@@ -1,6 +1,7 @@
 import { bi, OPEN_STATUSES, type Role, type SessionUser } from '@smartcampus/shared';
 import type { PrismaClient } from '../db';
 import { ConflictError, NotFoundError, ValidationError } from '../domain/errors';
+import type { AuthProvider } from '../ports/auth';
 import type { FileStorage } from '../ports/file-storage';
 import type { AuditService } from './audit';
 
@@ -19,6 +20,7 @@ export class UserAdminService {
     private readonly prisma: PrismaClient,
     private readonly audit: AuditService,
     private readonly storage: FileStorage,
+    private readonly auth: AuthProvider,
   ) {}
 
   async list(q?: string): Promise<UserRow[]> {
@@ -53,6 +55,8 @@ export class UserAdminService {
         await tx.user.update({ where: { id: userId }, data: { role } });
         await this.audit.log(actor, 'ROLE_CHANGE', { type: 'user', id: userId }, { from: user.role, to: role }, tx);
       });
+      // Groupe Cognito aligné (sans effet en local) ; la base reste la référence pour les droits.
+      await this.auth.syncRole(user.email, role).catch((err: unknown) => console.error('[rôles] synchro fournisseur :', err));
     }
     const [row] = (await this.list(user.email)).filter((u) => u.id === userId);
     return row!;
@@ -102,6 +106,8 @@ export class UserAdminService {
       await this.audit.log(actor, 'DATA_DELETION', { type: 'user', id: userId }, { tickets: ticketIds.length, photos: photos.length }, tx);
     });
 
+    // Compte désactivé chez le fournisseur d'identité (Cognito) : plus aucune connexion possible.
+    await this.auth.disableUser(user.email).catch((err: unknown) => console.error('[rgpd] compte non désactivé :', err));
     // Fichiers supprimés après la transaction : un échec de stockage ne réintroduit pas de données en base.
     await Promise.all(photos.map((key) => this.storage.delete(key).catch((err: unknown) => console.error('[rgpd] photo non supprimée :', key, err))));
     return { tickets: ticketIds.length, photos: photos.length };
