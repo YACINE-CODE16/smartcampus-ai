@@ -1,11 +1,23 @@
 # SmartCampus AI
 
-Signaler et suivre un incident du campus en moins de 2 minutes ; donner à l'administration une vision en temps réel de l'état du campus.
-Workshop Capgemini × ESIEA — 38 user stories (US-01 à US-38), déploiement AWS us-east-1.
+Application de signalement d'incidents pour le campus de l'ESIEA (workshop Capgemini × ESIEA).
+Un étudiant signale un problème (salle, matériel, réseau, propreté, sécurité) en moins de 2 minutes, depuis son téléphone, avec photo ou PDF.
+Les agents techniques prennent en charge, traitent et résolvent les tickets ; l'étudiant suit l'avancement et reçoit une notification à chaque étape.
+L'administration pilote le campus : tableau de bord, délais cibles par catégorie, alertes, exports, journal d'audit.
+Un assistant IA (Amazon Bedrock) répond aux questions courantes et aide à qualifier les tickets. 38 user stories, interface FR/EN.
 
-- **Rôles** : étudiant (`STUDENT`), agent (`AGENT`), administrateur (`ADMIN`)
-- **Stack** : monorepo npm · React + Vite · Node + Express + TypeScript · Prisma + PostgreSQL · SSE · FR/EN
-- **Specs** : [`.kiro/specs/smartcampus-ai/`](.kiro/specs/smartcampus-ai/) · **Règles** : [`.kiro/steering/`](.kiro/steering/) · **Déploiement** : [`DEPLOY.md`](DEPLOY.md)
+- **Architecture AWS** : [docs/architecture.md](docs/architecture.md) · **Déploiement** : [DEPLOY.md](DEPLOY.md)
+- **User stories** : [docs/user-stories-smartcampus.md](docs/user-stories-smartcampus.md) · **Specs** : [.kiro/specs/smartcampus-ai/](.kiro/specs/smartcampus-ai/) · **Design** : [DESIGN.md](DESIGN.md)
+
+## Stack
+
+| Couche | Technologies |
+|---|---|
+| Front | React 19, Vite, React Router, Recharts, Lucide ; CSS natif à variables (clair/sombre) |
+| API | Node 20, Express 5, TypeScript, zod ; ports/adapters choisis par variables d'environnement |
+| Données | PostgreSQL 16, Prisma 7 (sans moteur natif) |
+| AWS | CloudFront + S3, API Gateway HTTP API, Cognito, Lambda (×6), RDS, S3, EventBridge, SES, Bedrock Nova Lite ; AWS SAM |
+| Qualité | Vitest (108 tests : règles métier + intégration API), oxlint, TypeScript strict |
 
 ## Démarrer en local
 
@@ -17,54 +29,37 @@ npm run setup     # .env, PostgreSQL (docker, port 55432), migrations, données 
 npm run dev       # API http://localhost:3000 + front http://localhost:5173
 ```
 
-Ouvrir http://localhost:5173 et cliquer sur un compte de démonstration.
-
-| Rôle | Email (mot de passe `Campus2026!`) |
-|---|---|
-| Étudiant | alice.martin@esiea.fr · bob.durand@esiea.fr |
-| Agent | karim.benali@esiea.fr · julie.robert@esiea.fr |
-| Admin | claire.moreau@esiea.fr |
-
-Le SSO école est **simulé** par ces comptes. Les emails sont écrits dans `apps/api/storage/outbox/*.eml`.
-
-## Scripts (à la racine)
+Ouvrir http://localhost:5173 et cliquer sur un compte de démonstration. En local, les emails sont écrits dans `apps/api/storage/outbox/*.eml` et l'assistant utilise un mock.
 
 | Commande | Rôle |
 |---|---|
 | `npm run dev` | API + front en mode watch |
-| `npm run setup` | environnement local complet |
 | `npm run seed` | réinitialise les données de démo (60 tickets sur 30 jours, FAQ, documents) |
-| `npm test` | 101 tests : règles métier + intégration API (PostgreSQL requis) |
+| `npm test` | tests (PostgreSQL local requis) |
 | `npm run typecheck` · `npm run lint` · `npm run build` | vérifications |
-| `npm run db:migrate` · `npm run db:studio` | migrations Prisma, explorateur de base |
+| `npm run deploy:aws` · `npm run migrate:aws` · `npm run destroy:aws` | déploiement AWS en une commande, données de démo, suppression ([DEPLOY.md](DEPLOY.md)) |
 
-## Adapters (variables d'environnement de l'API)
+## Comptes de démonstration
 
-| Port | Variable | Local | Production |
-|---|---|---|---|
-| Authentification | `AUTH_PROVIDER` | `local` (SSO simulé) | `local` |
-| Photos | `STORAGE_DRIVER` | `local` (`storage/uploads`) | `s3` (`S3_BUCKET`) |
-| Emails | `MAIL_DRIVER` | `console` (`.eml`) | `ses` ou `console` |
-| Base documentaire | `KB_DRIVER` | `local` (FAQ + documents en base) | `local` ou `bedrock` (`BEDROCK_KB_ID`) |
-| Assistant IA | `AI_DRIVER` | `mock` | `bedrock` (Nova Lite + Guardrail), repli automatique sur `mock` |
+Mot de passe commun : `Campus2026!` (le SSO de l'école est simulé ; sur AWS, les mêmes comptes existent dans Cognito).
+
+| Rôle | Comptes |
+|---|---|
+| Étudiant | alice.martin@esiea.fr · bob.durand@esiea.fr |
+| Agent technique | karim.benali@esiea.fr · julie.robert@esiea.fr |
+| Administration | claire.moreau@esiea.fr |
 
 ## Arborescence
 
 ```
-apps/web/          front React (proxy /api en dev ; nginx en production)
-apps/api/          API Express
-  prisma/          schéma, migrations, seed, FAQ bilingue, documents
-  src/ports/       AuthProvider, FileStorage, Mailer, KnowledgeBase, AiAssistant
-  src/adapters/    implémentations locales et AWS (S3, SES, Bedrock)
-  src/services/    cas d'usage : incidents, workflow, notifications, dashboard, assistant, admin
-  src/http/        routes, middlewares, sécurité
-  test/            tests d'intégration
-packages/shared/   règles métier pures (transitions, accès, KPI, langue), configuration, types
-docker-compose.yml             PostgreSQL de développement
-docker-compose.prod.yml        production : Traefik + api + web (RDS en externe)
-docker-compose.local-test.yml  test local de la pile de production
+apps/web/            front React
+apps/api/            API Express
+  prisma/            schéma, migrations, données de démo
+  src/ports/         AuthProvider, FileStorage, Mailer, KnowledgeBase, AiAssistant
+  src/adapters/      implémentations locales et AWS (Cognito, S3, SES, Lambda, Bedrock)
+  src/services/      cas d'usage : incidents, workflow, notifications, tableau de bord, assistant
+  src/lambda/        handlers AWS : http (4 Lambdas API), notifications, migrate
+packages/shared/     règles métier pures, configuration, types partagés
+template.yaml        infrastructure AWS (SAM)
+scripts/aws/         deploy, migrate, destroy
 ```
-
-## Avancement
-
-Toutes les user stories US-01 à US-38 sont implémentées. Le détail est dans [`tasks.md`](.kiro/specs/smartcampus-ai/tasks.md).
