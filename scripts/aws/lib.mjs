@@ -4,7 +4,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -12,7 +12,11 @@ export const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 export const STACK = process.env.STACK_NAME || 'smartcampus';
 export const REGION = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'us-east-1';
 const CONFIG_FILE = `${ROOT}.aws-deploy.json`;
-const SAM = process.env.SAM_CLI || 'sam';
+// Premier SAM CLI réellement utilisable (une installation Homebrew peut être cassée par une mise à jour de Python).
+const SAM =
+  [process.env.SAM_CLI, 'sam', join(homedir(), '.local/bin/sam')]
+    .filter(Boolean)
+    .find((c) => spawnSync(c, ['build', '--help'], { stdio: 'ignore' }).status === 0) ?? 'sam';
 
 export const step = (msg) => console.log(`\n\x1b[1m▶ ${msg}\x1b[0m`);
 export const info = (msg) => console.log(`  ${msg}`);
